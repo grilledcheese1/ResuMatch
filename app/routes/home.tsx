@@ -1,9 +1,11 @@
 import type { Route } from "./+types/home";
 import Navbar from "~/components/Navbar";
 import ResumeCard from "~/components/ResumeCard";
-import {usePuterStore} from "~/lib/puter";
-import {Link, useNavigate} from "react-router";
-import {useEffect, useState} from "react";
+import { usePuterStore } from "~/lib/puter";
+import { Link, useNavigate } from "react-router";
+import { useEffect, useRef, useState } from "react";
+import { useGSAP } from "@gsap/react";
+import { reducedMotion, fadeSlideIn, staggerCards, scaleIn } from "~/lib/animations";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -13,68 +15,93 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export default function Home() {
-  const {auth, kv} = usePuterStore();
+  const { auth, kv } = usePuterStore();
   const navigate = useNavigate();
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [loadingResumes, setLoadingResumes] = useState(false);
 
+  const headingRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const ctaRef = useRef<HTMLAnchorElement>(null);
+
   useEffect(() => {
-    if(!auth.isAuthenticated) navigate('/auth?next=/');
-  }, [auth.isAuthenticated])
+    if (!auth.isAuthenticated) navigate('/auth?next=/');
+  }, [auth.isAuthenticated]);
 
   useEffect(() => {
     const loadResumes = async () => {
       setLoadingResumes(true);
-
       const resumes = (await kv.list('resume:*', true)) as KVItem[];
-
       const parsedResumes = resumes?.map((resume) => (
         JSON.parse(resume.value) as Resume
-      ))
+      ));
       console.log("parsedResumes", parsedResumes);
       setResumes(parsedResumes || []);
       setLoadingResumes(false);
-
-    }
+    };
     loadResumes();
-  }, [])
+  }, []);
 
-  return <main className="bg-white !pt-0">
-    <Navbar />
+  // Heading entrance
+  useGSAP(() => {
+    if (reducedMotion() || !headingRef.current) return;
+    const targets = headingRef.current.querySelectorAll("h1, h2");
+    if (targets.length) fadeSlideIn(targets, { stagger: 0.1 });
+  }, { scope: headingRef });
 
+  // Card grid stagger (fires when resumes load)
+  useGSAP(() => {
+    if (reducedMotion() || resumes.length === 0 || !gridRef.current) return;
+    const cards = gridRef.current.querySelectorAll(".resume-card");
+    if (cards.length) staggerCards(cards);
+  }, { dependencies: [resumes] });
 
-    <section className="main-section">
-      <div className="page-heading py-16">
-        <h1> Track your Applications & Resume Ratings</h1>
-        {!loadingResumes && resumes?.length == 0 ? (
+  // Empty-state CTA entrance
+  useGSAP(() => {
+    if (reducedMotion() || loadingResumes || resumes.length > 0 || !ctaRef.current) return;
+    scaleIn(ctaRef.current, { delay: 0.2 });
+  }, { dependencies: [loadingResumes, resumes] });
+
+  return (
+    <main className="bg-white !pt-0">
+      <Navbar />
+
+      <section className="main-section">
+        <div ref={headingRef} className="page-heading py-16">
+          <h1>Track your Applications & Resume Ratings</h1>
+          {!loadingResumes && resumes?.length == 0 ? (
             <h2>No resumes found. Upload your first resume to get feedback.</h2>
-        ): (
+          ) : (
             <h2>Review your submissions and check AI-powered feedback.</h2>
-        )}
-      </div>
-      {loadingResumes && (
-          <div className="flex flex-col items-center justify-center py-12">
-            <img src="/images/resume-scan-2.gif" className="w-[200px]"/>
-          </div>
-      )}
+          )}
+        </div>
 
-      {!loadingResumes && resumes?.length == 0 && (
+        {loadingResumes && (
+          <div className="flex flex-col items-center justify-center py-12">
+            <img src="/images/resume-scan-2.gif" className="w-[200px]" />
+          </div>
+        )}
+
+        {!loadingResumes && resumes?.length == 0 && (
           <div className="flex flex-col items-center justify-center mt-10 gap-4">
-            <Link to="/upload" className="primary-button w-fit text-xl font-semibold">
+            <Link
+              ref={ctaRef}
+              to="/upload"
+              className="primary-button w-fit text-xl font-semibold"
+            >
               Upload Resume
             </Link>
           </div>
-      )}
-
-    </section>
+        )}
+      </section>
 
       {!loadingResumes && resumes.length > 0 && (
-        <div className="resumes-section">
-          {resumes.map( (resume) => (
+        <div ref={gridRef} className="resumes-section">
+          {resumes.map((resume) => (
             <ResumeCard key={resume.id} resume={resume} />
           ))}
         </div>
       )}
-
-  </main>
+    </main>
+  );
 }

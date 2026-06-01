@@ -1,10 +1,32 @@
+import { useRef, useState } from "react";
+import { useGSAP } from "@gsap/react";
+import gsap from "gsap";
+import { reducedMotion, countUp } from "~/lib/animations";
+
 const ScoreCircle = ({ score = 75 }: { score: number }) => {
     const radius = 40;
     const stroke = 8;
     const normalizedRadius = radius - stroke / 2;
     const circumference = 2 * Math.PI * normalizedRadius;
-    const progress = score / 100;
-    const strokeDashoffset = circumference * (1 - progress);
+    const strokeDashoffset = circumference * (1 - score / 100);
+
+    const progressCircleRef = useRef<SVGCircleElement>(null);
+    const [displayScore, setDisplayScore] = useState(0);
+
+    useGSAP(() => {
+        if (reducedMotion()) {
+            gsap.set(progressCircleRef.current, { strokeDashoffset });
+            setDisplayScore(score);
+            return;
+        }
+        gsap.set(progressCircleRef.current, { strokeDashoffset: circumference });
+        gsap.to(progressCircleRef.current, {
+            strokeDashoffset,
+            duration: 1,
+            ease: "power2.out",
+        });
+        countUp(score, setDisplayScore, 1);
+    }, { dependencies: [score] });
 
     return (
         <div className="relative w-[100px] h-[100px]">
@@ -14,7 +36,6 @@ const ScoreCircle = ({ score = 75 }: { score: number }) => {
                 viewBox="0 0 100 100"
                 className="transform -rotate-90"
             >
-                {/* Background circle */}
                 <circle
                     cx="50"
                     cy="50"
@@ -23,7 +44,6 @@ const ScoreCircle = ({ score = 75 }: { score: number }) => {
                     strokeWidth={stroke}
                     fill="transparent"
                 />
-                {/* Partial circle with gradient */}
                 <defs>
                     <linearGradient id="grad" x1="1" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#3ecf8e" />
@@ -31,6 +51,7 @@ const ScoreCircle = ({ score = 75 }: { score: number }) => {
                     </linearGradient>
                 </defs>
                 <circle
+                    ref={progressCircleRef}
                     cx="50"
                     cy="50"
                     r={normalizedRadius}
@@ -38,14 +59,12 @@ const ScoreCircle = ({ score = 75 }: { score: number }) => {
                     strokeWidth={stroke}
                     fill="transparent"
                     strokeDasharray={circumference}
-                    strokeDashoffset={strokeDashoffset}
                     strokeLinecap="round"
                 />
             </svg>
 
-            {/* Score and issues */}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="font-semibold text-sm">{`${score}/100`}</span>
+                <span className="font-semibold text-sm">{`${displayScore}/100`}</span>
             </div>
         </div>
     );
