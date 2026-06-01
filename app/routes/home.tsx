@@ -4,8 +4,6 @@ import ResumeCard from "~/components/ResumeCard";
 import {usePuterStore} from "~/lib/puter";
 import {Link, useNavigate} from "react-router";
 import {useEffect, useState} from "react";
-import * as fs from "node:fs";
-import resume from "~/routes/resume";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -28,7 +26,7 @@ export default function Home() {
     const loadResumes = async () => {
       setLoadingResumes(true);
 
-      const resumes = (await kv.list('resumes:*', true)) as KVItem[];
+      const resumes = (await kv.list('resume:*', true)) as KVItem[];
 
       const parsedResumes = resumes?.map((resume) => (
         JSON.parse(resume.value) as Resume
