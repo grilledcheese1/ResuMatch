@@ -90,7 +90,7 @@ const Upload = () => {
   }
 
   return (
-      <main className ="bg-[url('/images/bg-main.svg')] bg-cover">
+      <main className="bg-white !pt-0">
       <Navbar />
 
         <section className="main-section">
@@ -105,7 +105,7 @@ const Upload = () => {
                   <h2>Drop your resume for an ATS score and improvement tips</h2>
               )}
               {error && (
-                  <p className="text-red-500 font-medium">{error}</p>
+                  <p className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm font-medium w-full">{error}</p>
               )}
               {!isProcessing && (
                   <form id="upload-form" onSubmit={handleSubmit} className="flex flex-col gap-4 mt-8">
