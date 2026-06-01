@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { cn } from "~/lib/utils";
+import { cn, findRelevantSnippet } from "~/lib/utils";
 import { usePuterStore } from "~/lib/puter";
 import { prepareRewriteInstructions } from "../../constants";
 import { generateUUID } from "~/lib/utils";
@@ -69,7 +69,7 @@ interface TipWithRewrite {
   jobDescription: string;
   session: RewriteSession | undefined;
   onStartRewrite: (tipId: string) => void;
-  onAccept: (tipId: string, rewritten: string, tipText: string) => void;
+  onAccept: (tipId: string, rewritten: string, tipText: string, originalSnippet: string) => void;
   onDismiss: (tipId: string) => void;
   textReady: boolean;
 }
@@ -118,8 +118,8 @@ const TipCard = ({
         {session && (
             <RewritePanel
                 session={session}
-                originalSnippet={resumeText.slice(0, 500)}
-                onAccept={(text) => onAccept(tipId, text, tip.tip)}
+                originalSnippet={findRelevantSnippet(resumeText, tip.tip + ' ' + tip.explanation)}
+                onAccept={(text) => onAccept(tipId, text, tip.tip, findRelevantSnippet(resumeText, tip.tip + ' ' + tip.explanation))}
                 onDismiss={() => onDismiss(tipId)}
             />
         )}
@@ -146,7 +146,7 @@ const CategoryContent = ({
   jobDescription: string;
   sessions: Map<string, RewriteSession>;
   onStartRewrite: (tipId: string) => void;
-  onAccept: (tipId: string, rewritten: string, tipText: string) => void;
+  onAccept: (tipId: string, rewritten: string, tipText: string, originalSnippet: string) => void;
   onDismiss: (tipId: string) => void;
   textReady: boolean;
 }) => {
@@ -160,7 +160,7 @@ const CategoryContent = ({
                     alt="score"
                     className="size-5"
                 />
-                <p className="text-xl text-gray-500">{tip.tip}</p>
+                <p className="text-sm text-gray-500">{tip.explanation}</p>
               </div>
           ))}
         </div>
@@ -271,16 +271,18 @@ const Details = ({
       setSessions((prev) => {
         const next = new Map(prev);
         const existing = next.get(tipId);
+        if (!existing) return next;
         next.set(tipId, {
           inProgress: false,
           tipId,
-          streamedText: result ?? existing?.streamedText ?? "",
+          streamedText: result ?? existing.streamedText,
         });
         return next;
       });
     } catch (err) {
       setSessions((prev) => {
         const next = new Map(prev);
+        if (!next.has(tipId)) return next;
         next.set(tipId, {
           inProgress: false,
           tipId,
@@ -292,7 +294,7 @@ const Details = ({
     }
   }, [ai, resumeText, jobTitle, jobDescription, feedback, flushPending]);
 
-  const handleAccept = useCallback(async (tipId: string, rewrittenText: string, tipText: string) => {
+  const handleAccept = useCallback(async (tipId: string, rewrittenText: string, tipText: string, originalSnippet: string) => {
     const parts = tipId.split("-");
     const category = parts.slice(0, -1).join("-") as RewrittenSection["category"];
 
@@ -300,7 +302,7 @@ const Details = ({
       id: generateUUID(),
       tipText,
       category,
-      originalSnippet: resumeText.slice(0, 500),
+      originalSnippet,
       rewrittenText,
       acceptedAt: Date.now(),
     };
@@ -312,7 +314,7 @@ const Details = ({
       next.delete(tipId);
       return next;
     });
-  }, [resumeText, onRewriteAccepted]);
+  }, [onRewriteAccepted]);
 
   const handleDismiss = useCallback((tipId: string) => {
     setSessions((prev) => {

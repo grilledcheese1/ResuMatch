@@ -64,14 +64,18 @@ const Resume = () => {
             rewrites: [...(resumeData.rewrites ?? []), rewrite],
         };
         setResumeData(updated);
-        // Serialize KV writes to prevent races
-        kvQueueRef.current = kvQueueRef.current.then(() =>
-            kv.set(`resume:${id}`, JSON.stringify(updated))
-        );
+        // Serialize KV writes; recover from any prior failure before enqueuing
+        kvQueueRef.current = kvQueueRef.current
+            .catch(() => undefined)
+            .then(() =>
+                kv.set(`resume:${id}`, JSON.stringify(updated)).catch((err) => {
+                    console.error("[resume] kv.set failed:", err);
+                })
+            );
     };
 
     return (
-        <main className="!pt-0">
+        <main className="pt-0!">
             <nav className="resume-nav">
                 <Link to="/" className="back-button">
                     <img src="/icons/back.svg" alt="Logo" className="w-2.5 h-2.5" />
@@ -79,7 +83,7 @@ const Resume = () => {
                 </Link>
             </nav>
             <div className="flex flex-row w-full max-lg:flex-col-reverse">
-                <section className="feedback-section bg-[url('/images/bg-small.svg) bg-cover h-screen sticky top-0 items-center justify-center">
+                <section className="feedback-section bg-[url('/images/bg-small.svg')] bg-cover h-screen sticky top-0 items-center justify-center">
                     {imageUrl && resumeUrl && (
                         <div className="animate-in fade-in duration-1000 gradient-border mx-sm:m-0 h-[90%] max-whl:h-fit w-fit">
                             <a href={resumeUrl} target="_blank" rel="noopener noreferrer">

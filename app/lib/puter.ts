@@ -389,8 +389,10 @@ export const usePuterStore = create<PuterStore>((set, get) => {
                     typeof response.message.content === "string"
                         ? response.message.content
                         : (response.message.content as any[])[0]?.text ?? "";
+                if (accumulated.length < text.length) {
+                    onChunk(text.slice(accumulated.length));
+                }
                 accumulated = text;
-                onChunk(text);
             }
         }
 

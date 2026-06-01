@@ -16,6 +16,10 @@ async function loadPdfJs(): Promise<any> {
         lib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
         pdfjsLib = lib;
         return lib;
+    }).catch((err) => {
+        pdfjsLib = null;
+        loadPromise = null;
+        throw err;
     });
 
     return loadPromise;
