@@ -69,7 +69,7 @@ form {
 
 @layer components {
   .resume-card-effects {
-    @apply animate-in fade-in duration-500;
+    /* GSAP handles card entrance stagger */
   }
 
   /* Flat elevated card */

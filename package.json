@@ -11,9 +11,11 @@
     "test:ui": "vitest --ui"
   },
   "dependencies": {
+    "@gsap/react": "^2.1.2",
     "@react-router/node": "7.14.0",
     "@react-router/serve": "7.14.0",
     "clsx": "^2.1.1",
+    "gsap": "^3.15.0",
     "isbot": "^5.1.36",
     "pdfjs-dist": "^5.6.205",
     "react": "^19.2.4",

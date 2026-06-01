@@ -11,6 +11,9 @@ import {
   AccordionHeader,
   AccordionItem,
 } from "./Accordion";
+import { useGSAP } from "@gsap/react";
+import gsap from "gsap";
+import { reducedMotion } from "~/lib/animations";
 
 const ScoreBadge = ({ score }: { score: number }) => {
   return (
@@ -150,6 +153,19 @@ const CategoryContent = ({
   onDismiss: (tipId: string) => void;
   textReady: boolean;
 }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useGSAP(() => {
+    if (reducedMotion() || !containerRef.current) return;
+    const cards = containerRef.current.children;
+    if (!cards.length) return;
+    gsap.fromTo(
+      cards,
+      { opacity: 0, y: 10 },
+      { opacity: 1, y: 0, duration: 0.3, ease: "power2.out", stagger: 0.07 }
+    );
+  }, { scope: containerRef });
+
   return (
       <div className="flex flex-col gap-4 items-center w-full">
         <div className="bg-[#fafafa] w-full rounded-[8px] px-5 py-4 grid grid-cols-2 gap-4">
@@ -161,11 +177,10 @@ const CategoryContent = ({
                     className="size-5"
                 />
                 <p className="text-sm text-gray-500">{tip.explanation}</p>
-                <p className="text-base text-[#707070]">{tip.tip}</p>
               </div>
           ))}
         </div>
-        <div className="flex flex-col gap-4 w-full">
+        <div ref={containerRef} className="flex flex-col gap-4 w-full">
           {tips.map((tip, index) => {
             const tipId = `${category}-${index}`;
             return (
