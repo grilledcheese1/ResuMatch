@@ -7,4 +7,8 @@ export default defineConfig({
   resolve: {
     tsconfigPaths: true,
   },
+  test: {
+    environment: "jsdom",
+    globals: true,
+  },
 });

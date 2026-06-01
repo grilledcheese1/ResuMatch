@@ -29,15 +29,23 @@ export async function convertPdfToImage(
     file: File
 ): Promise<PdfConversionResult> {
     try {
+        console.log('[pdf] loading pdfjs...');
         const lib = await loadPdfJs();
+        console.log('[pdf] pdfjs loaded, parsing arrayBuffer...');
 
         const arrayBuffer = await file.arrayBuffer();
-        const pdf = await lib.getDocument({ data: arrayBuffer }).promise;
-        const page = await pdf.getPage(1);
+        console.log('[pdf] arrayBuffer size:', arrayBuffer.byteLength, 'bytes');
 
+        const pdf = await lib.getDocument({ data: arrayBuffer }).promise;
+        console.log('[pdf] document loaded, pages:', pdf.numPages);
+
+        const page = await pdf.getPage(1);
         const viewport = page.getViewport({ scale: 4 });
+        console.log('[pdf] viewport:', viewport.width, 'x', viewport.height);
+
         const canvas = document.createElement("canvas");
         const context = canvas.getContext("2d");
+        console.log('[pdf] canvas context:', context ? 'ok' : 'NULL — canvas unsupported');
 
         canvas.width = viewport.width;
         canvas.height = viewport.height;
@@ -48,12 +56,13 @@ export async function convertPdfToImage(
         }
 
         await page.render({ canvasContext: context!, viewport }).promise;
+        console.log('[pdf] render complete, calling toBlob...');
 
         return new Promise((resolve) => {
             canvas.toBlob(
                 (blob) => {
                     if (blob) {
-                        // Create a File from the blob with the same name as the pdf
+                        console.log('[pdf] blob created, size:', blob.size, 'bytes');
                         const originalName = file.name.replace(/\.pdf$/i, "");
                         const imageFile = new File([blob], `${originalName}.png`, {
                             type: "image/png",
@@ -64,6 +73,7 @@ export async function convertPdfToImage(
                             file: imageFile,
                         });
                     } else {
+                        console.error('[pdf] toBlob returned null — canvas may be too large or unsupported');
                         resolve({
                             imageUrl: "",
                             file: null,
@@ -76,6 +86,7 @@ export async function convertPdfToImage(
             ); // Set quality to maximum (1.0)
         });
     } catch (err) {
+        console.error('[pdf] conversion threw:', err);
         return {
             imageUrl: "",
             file: null,
