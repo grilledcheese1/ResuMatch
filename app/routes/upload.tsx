@@ -65,6 +65,7 @@ const Upload = () => {
       setIsProcessing(false);
     }
   }
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget.closest('form');
