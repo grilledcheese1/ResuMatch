@@ -12,13 +12,6 @@ interface ATSProps {
 }
 
 const ATS: React.FC<ATSProps> = ({ score, suggestions }) => {
-  // Determine background gradient based on score
-  const gradientClass = score >= SCORE_STRONG_THRESHOLD
-      ? 'from-green-100'
-      : score >= SCORE_MODERATE_THRESHOLD
-          ? 'from-yellow-100'
-          : 'from-red-100';
-
   const iconSrc = score >= SCORE_STRONG_THRESHOLD
       ? '/icons/ats-good.svg'
       : score >= SCORE_MODERATE_THRESHOLD
@@ -32,19 +25,19 @@ const ATS: React.FC<ATSProps> = ({ score, suggestions }) => {
           : 'Needs Improvement';
 
   return (
-      <div className={`bg-gradient-to-b ${gradientClass} to-white rounded-2xl shadow-md w-full p-6`}>
+      <div className="bg-white border border-[#dfdfdf] rounded-[12px] w-full p-6">
         {/* Top section with icon and headline */}
         <div className="flex items-center gap-4 mb-6">
           <img src={iconSrc} alt="ATS Score Icon" className="w-12 h-12" />
           <div>
-            <h2 className="text-2xl font-bold">ATS Score - {score}/100</h2>
+            <h2 className="!text-xl !font-semibold !text-[#171717]">ATS Score — {score}/100</h2>
           </div>
         </div>
 
         {/* Description section */}
         <div className="mb-6">
           <h3 className="text-xl font-semibold mb-2">{subtitle}</h3>
-          <p className="text-gray-600 mb-4">
+          <p className="text-[#707070] mb-4">
             This score represents how well your resume is likely to perform in Applicant Tracking Systems used by employers.
           </p>
 
@@ -66,7 +59,7 @@ const ATS: React.FC<ATSProps> = ({ score, suggestions }) => {
         </div>
 
         {/* Closing encouragement */}
-        <p className="text-gray-700 italic">
+        <p className="text-[#707070] italic">
           Keep refining your resume to improve your chances of getting past ATS filters and into the hands of recruiters.
         </p>
       </div>

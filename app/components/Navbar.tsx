@@ -4,10 +4,10 @@ const Navbar = () => {
   return (
     <nav className="navbar">
       <Link to="/">
-        <p className="text-2xl font-bold text-gradient"> ResuMatch</p>
+        <p className="text-xl font-semibold text-[#171717] tracking-tight">ResuMatch</p>
       </Link>
 
-      <Link to="/upload" className="primary-button w-fit">
+      <Link to="/upload" className="primary-button w-fit text-sm">
         Upload Resume
       </Link>
     </nav>

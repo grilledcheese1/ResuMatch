@@ -72,7 +72,7 @@ export const AccordionItem: React.FC<AccordionItemProps> = ({
                                                                 className = "",
                                                             }) => {
     return (
-        <div className={`overflow-hidden border-b border-gray-200 ${className}`}>
+        <div className={`overflow-hidden border-b border-[#dfdfdf] ${className}`}>
             {children}
         </div>
     );
@@ -102,7 +102,7 @@ export const AccordionHeader: React.FC<AccordionHeaderProps> = ({
                 "rotate-180": isActive,
             })}
             fill="none"
-            stroke="#98A2B3"
+            stroke="#707070"
             viewBox="0 0 24 24"
             xmlns="http://www.w3.org/2000/svg"
         >
