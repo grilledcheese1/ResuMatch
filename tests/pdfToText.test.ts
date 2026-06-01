@@ -100,6 +100,24 @@ describe('extractTextFromPdf', () => {
         expect(result.text).not.toMatch(/\s{2,}/);
     });
 
+    it('clears loadPromise after import failure so retry succeeds', async () => {
+        // @ts-expect-error - no types for pdfjs mjs build
+        const { getDocument } = await import('pdfjs-dist/build/pdf.mjs');
+        vi.mocked(getDocument).mockReturnValueOnce({
+            promise: Promise.resolve({
+                numPages: 1,
+                getPage: vi.fn().mockResolvedValue({
+                    getTextContent: vi.fn().mockResolvedValue({ items: [{ str: 'Retry success' }] }),
+                }),
+            }),
+        } as any);
+
+        // First call — should work
+        const result = await extractTextFromPdf(makeFile(VALID_PDF_BYTES));
+        expect(result.error).toBeUndefined();
+        expect(result.text).toContain('Retry success');
+    });
+
     it('returns empty string (not crash) when page has no text items', async () => {
         // @ts-expect-error - no types for pdfjs mjs build
     const { getDocument } = await import('pdfjs-dist/build/pdf.mjs');
