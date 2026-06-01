@@ -39,7 +39,7 @@ export default function Home() {
     loadResumes();
   }, [])
 
-  return <main className ="bg-[url('/images/bg-main.svg')] bg-cover">
+  return <main className="bg-white !pt-0">
     <Navbar />
 
 
@@ -53,7 +53,7 @@ export default function Home() {
         )}
       </div>
       {loadingResumes && (
-          <div className="flex flex-col items-center justify-center">
+          <div className="flex flex-col items-center justify-center py-12">
             <img src="/images/resume-scan-2.gif" className="w-[200px]"/>
           </div>
       )}

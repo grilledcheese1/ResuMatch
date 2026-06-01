@@ -28,10 +28,9 @@ const FileUploader = ( {onFileSelect} : FileUploaderProps) => {
   const file = acceptedFiles[0] || null;
 
   return (
-    <div className="w-full gradient-border">
-      <div {...getRootProps()}>
-        <input {...getInputProps()} />
-        <div className="space-y-4 cursor-pointer">
+    <div {...getRootProps()} className={`uplader-drag-area ${isDragActive ? 'border-[#3ecf8e] bg-[#f0fdf4]/40' : ''}`}>
+      <input {...getInputProps()} />
+        <div className="space-y-4">
 
             {file ? (
                 <div className="uploader-selected-file" onClick={(e) => e.stopPropagation()}>
@@ -66,7 +65,6 @@ const FileUploader = ( {onFileSelect} : FileUploaderProps) => {
                 </div>
             )}
         </div>
-      </div>
     </div>
   )
 }

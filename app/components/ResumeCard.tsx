@@ -19,17 +19,17 @@ const ResumeCard = ({resume: {id, companyName, jobTitle, feedback, imagePath}} :
     }, [imagePath]);
 
   return (
-      <Link to={`/resume/${id}`} className="resume-card-effects resume-card">ResumeCard
+      <Link to={`/resume/${id}`} className="resume-card-effects resume-card">
         <div className="resume-card-header">
 
           <div className="flex flex-col gap-2">
-              {companyName && <h2 className="!text-black break-words font-bold">
+              {companyName && <h2 className="!text-[#171717] !text-base break-words !font-semibold">
               {companyName}
             </h2>}
-              {jobTitle && <h3 className="text-lg break-words text-gray-500">
+              {jobTitle && <h3 className="text-sm break-words text-[#707070]">
               {jobTitle}
             </h3>}
-              {!companyName && !jobTitle && <h2 className="text-black! font-bold">Resume</h2>}
+              {!companyName && !jobTitle && <h2 className="!text-[#171717] !text-base !font-semibold">Resume</h2>}
           </div>
           <div className="shrink-0">
             <ScoreCircle score={feedback.overallScore} />
