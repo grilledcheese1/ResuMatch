@@ -22,3 +22,39 @@ export const generateUUID = () => crypto.randomUUID();
 
 export const SCORE_STRONG_THRESHOLD = 70;
 export const SCORE_MODERATE_THRESHOLD = 50;
+
+const STOP_WORDS = new Set([
+    'with','your','that','this','from','have','more','will','what',
+    'when','which','their','about','should','would','could','there',
+    'these','those','being','make','some','into','than','then','also',
+]);
+
+export function findRelevantSnippet(resumeText: string, query: string, windowSize = 600): string {
+    if (!resumeText) return '';
+
+    const words = query
+        .toLowerCase()
+        .replace(/[^a-z\s]/g, ' ')
+        .split(/\s+/)
+        .filter(w => w.length > 3 && !STOP_WORDS.has(w))
+        .sort((a, b) => b.length - a.length); // prefer longer, more specific words
+
+    if (!words.length) return resumeText.slice(0, windowSize);
+
+    const lower = resumeText.toLowerCase();
+    let bestIdx = -1;
+
+    for (const word of words) {
+        const idx = lower.indexOf(word);
+        if (idx !== -1) {
+            bestIdx = idx;
+            break; // first match on longest word wins
+        }
+    }
+
+    if (bestIdx === -1) return resumeText.slice(0, windowSize);
+
+    const start = Math.max(0, bestIdx - Math.floor(windowSize / 3));
+    const end = Math.min(resumeText.length, start + windowSize);
+    return resumeText.slice(start, end).trim();
+}

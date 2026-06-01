@@ -1,5 +1,17 @@
-interface Resume {
+interface RewrittenSection {
+    id: string;
+    tipText: string;
+    category: "toneAndStyle" | "content" | "structure" | "skills";
+    originalSnippet: string;
+    rewrittenText: string;
+    acceptedAt: number;
+}
 
+interface RewriteSession {
+    inProgress: boolean;
+    tipId: string;
+    streamedText: string;
+    error?: string;
 }
 
 interface Job {
@@ -13,9 +25,11 @@ interface Resume {
     id: string;
     companyName?: string;
     jobTitle?: string;
+    jobDescription?: string;
     imagePath: string;
     resumePath: string;
     feedback: Feedback;
+    rewrites?: RewrittenSection[];
 }
 
 interface Feedback {

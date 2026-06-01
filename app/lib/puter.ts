@@ -76,6 +76,10 @@ interface PuterStore {
             path: string,
             message: string
         ) => Promise<AIResponse | undefined>;
+        rewrite: (
+            prompt: string,
+            onChunk: (chunk: string) => void
+        ) => Promise<string | undefined>;
         img2txt: (
             image: string | File | Blob,
             testMode?: boolean
@@ -345,6 +349,56 @@ export const usePuterStore = create<PuterStore>((set, get) => {
         ) as Promise<AIResponse | undefined>;
     };
 
+    const rewrite = async (
+        prompt: string,
+        onChunk: (chunk: string) => void
+    ): Promise<string | undefined> => {
+        const puter = getPuter();
+        if (!puter) {
+            setError("Puter.js not available");
+            return;
+        }
+
+        let accumulated = "";
+        try {
+            const stream = await puter.ai.chat(
+                [{ role: "user", content: prompt }],
+                { model: "claude-sonnet-4", stream: true, max_tokens: 800 }
+            );
+
+            // stream is an async iterable of chunk objects
+            for await (const chunk of stream as any) {
+                const text: string =
+                    typeof chunk === "string"
+                        ? chunk
+                        : chunk?.text ?? chunk?.delta?.text ?? chunk?.choices?.[0]?.delta?.content ?? "";
+                if (text) {
+                    accumulated += text;
+                    onChunk(text);
+                }
+            }
+        } catch {
+            // Streaming failed — fall back to non-streaming
+            const response = await puter.ai.chat(
+                [{ role: "user", content: prompt }],
+                { model: "claude-sonnet-4", max_tokens: 800 }
+            ) as AIResponse | undefined;
+
+            if (response) {
+                const text =
+                    typeof response.message.content === "string"
+                        ? response.message.content
+                        : (response.message.content as any[])[0]?.text ?? "";
+                if (accumulated.length < text.length) {
+                    onChunk(text.slice(accumulated.length));
+                }
+                accumulated = text;
+            }
+        }
+
+        return accumulated || undefined;
+    };
+
     const img2txt = async (image: string | File | Blob, testMode?: boolean) => {
         const puter = getPuter();
         if (!puter) {
@@ -430,6 +484,8 @@ export const usePuterStore = create<PuterStore>((set, get) => {
                 options?: PuterChatOptions
             ) => chat(prompt, imageURL, testMode, options),
             feedback: (path: string, message: string) => feedback(path, message),
+            rewrite: (prompt: string, onChunk: (chunk: string) => void) =>
+                rewrite(prompt, onChunk),
             img2txt: (image: string | File | Blob, testMode?: boolean) =>
                 img2txt(image, testMode),
         },
