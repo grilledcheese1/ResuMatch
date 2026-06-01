@@ -117,4 +117,30 @@ describe('extractTextFromPdf', () => {
         expect(result.text).toBe('');
         expect(result.pageTexts).toEqual(['']);
     });
+
+    it('clears loadPromise after import failure so a retry succeeds', async () => {
+        // @ts-expect-error - no types for pdfjs mjs build
+        const { getDocument } = await import('pdfjs-dist/build/pdf.mjs');
+
+        // First call: simulate import-level failure then a successful retry
+        vi.mocked(getDocument)
+            .mockReturnValueOnce({ promise: Promise.reject(new Error('load failed')) } as any)
+            .mockReturnValueOnce({
+                promise: Promise.resolve({
+                    numPages: 1,
+                    getPage: vi.fn().mockResolvedValue({
+                        getTextContent: vi.fn().mockResolvedValue({
+                            items: [{ str: 'Retry succeeded' }],
+                        }),
+                    }),
+                }),
+            } as any);
+
+        const first = await extractTextFromPdf(makeFile(VALID_PDF_BYTES));
+        expect(first.error).toBeTruthy();
+
+        const second = await extractTextFromPdf(makeFile(VALID_PDF_BYTES));
+        expect(second.error).toBeUndefined();
+        expect(second.text).toContain('Retry succeeded');
+    });
 });
