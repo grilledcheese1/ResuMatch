@@ -1,4 +1,5 @@
 import React from 'react'
+import { SCORE_STRONG_THRESHOLD, SCORE_MODERATE_THRESHOLD } from '~/lib/utils'
 
 interface Suggestion {
   type: "good" | "improve";
@@ -12,23 +13,21 @@ interface ATSProps {
 
 const ATS: React.FC<ATSProps> = ({ score, suggestions }) => {
   // Determine background gradient based on score
-  const gradientClass = score > 69
+  const gradientClass = score >= SCORE_STRONG_THRESHOLD
       ? 'from-green-100'
-      : score > 49
+      : score >= SCORE_MODERATE_THRESHOLD
           ? 'from-yellow-100'
           : 'from-red-100';
 
-  // Determine icon based on score
-  const iconSrc = score > 69
+  const iconSrc = score >= SCORE_STRONG_THRESHOLD
       ? '/icons/ats-good.svg'
-      : score > 49
+      : score >= SCORE_MODERATE_THRESHOLD
           ? '/icons/ats-warning.svg'
           : '/icons/ats-bad.svg';
 
-  // Determine subtitle based on score
-  const subtitle = score > 69
+  const subtitle = score >= SCORE_STRONG_THRESHOLD
       ? 'Great Job!'
-      : score > 49
+      : score >= SCORE_MODERATE_THRESHOLD
           ? 'Good Start'
           : 'Needs Improvement';
 

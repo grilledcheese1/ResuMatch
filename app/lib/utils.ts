@@ -19,3 +19,6 @@ export function formatSize(bytes: number): string {
 }
 
 export const generateUUID = () => crypto.randomUUID();
+
+export const SCORE_STRONG_THRESHOLD = 70;
+export const SCORE_MODERATE_THRESHOLD = 50;

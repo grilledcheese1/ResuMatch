@@ -1,15 +1,17 @@
+import { SCORE_STRONG_THRESHOLD, SCORE_MODERATE_THRESHOLD } from '~/lib/utils'
+
 interface ScoreBadgeProps {
     score: number;
 }
 
-const ScoreBadge: React.FC<ScoreBadgeProps> = ({ score }) => {
+const ScoreBadge = ({ score }: ScoreBadgeProps) => {
     let badgeColor = '';
     let badgeText = '';
 
-    if (score > 70) {
+    if (score >= SCORE_STRONG_THRESHOLD) {
         badgeColor = 'bg-badge-green text-green-600';
         badgeText = 'Strong';
-    } else if (score > 49) {
+    } else if (score >= SCORE_MODERATE_THRESHOLD) {
         badgeColor = 'bg-badge-yellow text-yellow-600';
         badgeText = 'Good Start';
     } else {
