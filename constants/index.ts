@@ -135,6 +135,42 @@ export const AIResponseFormat = `
       };
     }`;
 
+export const prepareRewriteInstructions = ({
+    resumeText,
+    tip,
+    category,
+    jobTitle,
+    jobDescription,
+}: {
+    resumeText: string;
+    tip: string;
+    category: string;
+    jobTitle: string;
+    jobDescription: string;
+}) => {
+    const truncated = resumeText.slice(0, 3000);
+    return `You are an expert resume writer and career coach.
+
+A resume has been analyzed and the following improvement was identified in the "${category}" category:
+"${tip}"
+
+The job the candidate is applying for:
+- Title: ${jobTitle}
+- Description: ${jobDescription}
+
+Here is the full resume text for context:
+---
+${truncated}
+---
+
+Your task: Rewrite ONLY the specific passage or section of the resume that this improvement tip refers to.
+- Output only the rewritten passage — no headings, no explanations, no preamble, no markdown.
+- Preserve the candidate's voice and first-person style.
+- Strengthen impact verbs, quantify where reasonable, and align with the job description keywords.
+- Keep the output concise — match the approximate length of the original passage.
+- Do not rewrite the entire resume. Target only what the tip addresses.`;
+};
+
 export const prepareInstructions = ({
                                         jobTitle,
                                         jobDescription,

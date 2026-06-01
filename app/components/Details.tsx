@@ -1,4 +1,10 @@
+import { useCallback, useRef, useState } from "react";
 import { cn } from "~/lib/utils";
+import { usePuterStore } from "~/lib/puter";
+import { prepareRewriteInstructions } from "../../constants";
+import { generateUUID } from "~/lib/utils";
+import RewriteButton from "./RewriteButton";
+import RewritePanel from "./RewritePanel";
 import {
   Accordion,
   AccordionContent,
@@ -54,10 +60,95 @@ const CategoryHeader = ({
   );
 };
 
+interface TipWithRewrite {
+  tip: { type: "good" | "improve"; tip: string; explanation: string };
+  tipId: string;
+  category: "toneAndStyle" | "content" | "structure" | "skills";
+  resumeText: string;
+  jobTitle: string;
+  jobDescription: string;
+  session: RewriteSession | undefined;
+  onStartRewrite: (tipId: string) => void;
+  onAccept: (tipId: string, rewritten: string, tipText: string) => void;
+  onDismiss: (tipId: string) => void;
+  textReady: boolean;
+}
+
+const TipCard = ({
+  tip,
+  tipId,
+  category,
+  resumeText,
+  jobTitle,
+  jobDescription,
+  session,
+  onStartRewrite,
+  onAccept,
+  onDismiss,
+  textReady,
+}: TipWithRewrite) => {
+  return (
+      <div
+          className={cn(
+              "flex flex-col gap-2 rounded-2xl p-4",
+              tip.type === "good"
+                  ? "bg-green-50 border border-green-200 text-green-700"
+                  : "bg-yellow-50 border border-yellow-200 text-yellow-700"
+          )}
+      >
+        <div className="flex flex-row gap-2 items-center justify-between">
+          <div className="flex flex-row gap-2 items-center">
+            <img
+                src={tip.type === "good" ? "/icons/check.svg" : "/icons/warning.svg"}
+                alt="score"
+                className="size-5"
+            />
+            <p className="text-xl font-semibold">{tip.tip}</p>
+          </div>
+          {tip.type === "improve" && (
+              <RewriteButton
+                  onRewrite={() => onStartRewrite(tipId)}
+                  isLoading={!!session?.inProgress}
+                  disabled={!textReady}
+                  disabledReason="Resume text is loading — try again in a moment"
+              />
+          )}
+        </div>
+        <p>{tip.explanation}</p>
+        {session && (
+            <RewritePanel
+                session={session}
+                originalSnippet={resumeText.slice(0, 500)}
+                onAccept={(text) => onAccept(tipId, text, tip.tip)}
+                onDismiss={() => onDismiss(tipId)}
+            />
+        )}
+      </div>
+  );
+};
+
 const CategoryContent = ({
-                           tips,
-                         }: {
+  tips,
+  category,
+  resumeText,
+  jobTitle,
+  jobDescription,
+  sessions,
+  onStartRewrite,
+  onAccept,
+  onDismiss,
+  textReady,
+}: {
   tips: { type: "good" | "improve"; tip: string; explanation: string }[];
+  category: "toneAndStyle" | "content" | "structure" | "skills";
+  resumeText: string;
+  jobTitle: string;
+  jobDescription: string;
+  sessions: Map<string, RewriteSession>;
+  onStartRewrite: (tipId: string) => void;
+  onAccept: (tipId: string, rewritten: string, tipText: string) => void;
+  onDismiss: (tipId: string) => void;
+  textReady: boolean;
 }) => {
   return (
       <div className="flex flex-col gap-4 items-center w-full">
@@ -65,93 +156,216 @@ const CategoryContent = ({
           {tips.map((tip, index) => (
               <div className="flex flex-row gap-2 items-center" key={index}>
                 <img
-                    src={
-                      tip.type === "good" ? "/icons/check.svg" : "/icons/warning.svg"
-                    }
+                    src={tip.type === "good" ? "/icons/check.svg" : "/icons/warning.svg"}
                     alt="score"
                     className="size-5"
                 />
-                <p className="text-xl text-gray-500 ">{tip.tip}</p>
+                <p className="text-xl text-gray-500">{tip.tip}</p>
               </div>
           ))}
         </div>
         <div className="flex flex-col gap-4 w-full">
-          {tips.map((tip, index) => (
-              <div
-                  key={index + tip.tip}
-                  className={cn(
-                      "flex flex-col gap-2 rounded-2xl p-4",
-                      tip.type === "good"
-                          ? "bg-green-50 border border-green-200 text-green-700"
-                          : "bg-yellow-50 border border-yellow-200 text-yellow-700"
-                  )}
-              >
-                <div className="flex flex-row gap-2 items-center">
-                  <img
-                      src={
-                        tip.type === "good"
-                            ? "/icons/check.svg"
-                            : "/icons/warning.svg"
-                      }
-                      alt="score"
-                      className="size-5"
-                  />
-                  <p className="text-xl font-semibold">{tip.tip}</p>
-                </div>
-                <p>{tip.explanation}</p>
-              </div>
-          ))}
+          {tips.map((tip, index) => {
+            const tipId = `${category}-${index}`;
+            return (
+                <TipCard
+                    key={tipId}
+                    tip={tip}
+                    tipId={tipId}
+                    category={category}
+                    resumeText={resumeText}
+                    jobTitle={jobTitle}
+                    jobDescription={jobDescription}
+                    session={sessions.get(tipId)}
+                    onStartRewrite={onStartRewrite}
+                    onAccept={onAccept}
+                    onDismiss={onDismiss}
+                    textReady={textReady}
+                />
+            );
+          })}
         </div>
       </div>
   );
 };
 
-const Details = ({ feedback }: { feedback: Feedback }) => {
+interface DetailsProps {
+  feedback: Feedback;
+  resumeText: string;
+  jobTitle: string;
+  jobDescription: string;
+  resumeId: string;
+  onRewriteAccepted?: (rewrite: RewrittenSection) => void;
+}
+
+const Details = ({
+  feedback,
+  resumeText,
+  jobTitle,
+  jobDescription,
+  resumeId,
+  onRewriteAccepted,
+}: DetailsProps) => {
+  const { ai } = usePuterStore();
+  const [sessions, setSessions] = useState<Map<string, RewriteSession>>(new Map());
+  // rAF ref to batch streaming state updates
+  const rafRef = useRef<number | null>(null);
+  const pendingChunks = useRef<Map<string, string>>(new Map());
+
+  const textReady = resumeText.length > 50;
+
+  const flushPending = useCallback(() => {
+    rafRef.current = null;
+    setSessions((prev) => {
+      const next = new Map(prev);
+      pendingChunks.current.forEach((text, tipId) => {
+        const existing = next.get(tipId);
+        if (existing) {
+          next.set(tipId, { ...existing, streamedText: existing.streamedText + text });
+        }
+      });
+      pendingChunks.current.clear();
+      return next;
+    });
+  }, []);
+
+  const handleStartRewrite = useCallback(async (tipId: string) => {
+    const parts = tipId.split("-");
+    const index = parseInt(parts[parts.length - 1], 10);
+    const category = parts.slice(0, -1).join("-") as RewrittenSection["category"];
+
+    const categoryMap: Record<string, typeof feedback.toneAndStyle> = {
+      toneAndStyle: feedback.toneAndStyle,
+      content: feedback.content,
+      structure: feedback.structure,
+      skills: feedback.skills,
+    };
+    const tipObj = categoryMap[category]?.tips[index];
+    if (!tipObj || tipObj.type !== "improve") return;
+
+    setSessions((prev) => {
+      const next = new Map(prev);
+      next.set(tipId, { inProgress: true, tipId, streamedText: "", error: undefined });
+      return next;
+    });
+
+    const prompt = prepareRewriteInstructions({
+      resumeText,
+      tip: tipObj.tip + ": " + tipObj.explanation,
+      category,
+      jobTitle,
+      jobDescription,
+    });
+
+    try {
+      const result = await ai.rewrite(prompt, (chunk) => {
+        pendingChunks.current.set(
+          tipId,
+          (pendingChunks.current.get(tipId) ?? "") + chunk
+        );
+        if (!rafRef.current) {
+          rafRef.current = requestAnimationFrame(flushPending);
+        }
+      });
+
+      setSessions((prev) => {
+        const next = new Map(prev);
+        const existing = next.get(tipId);
+        next.set(tipId, {
+          inProgress: false,
+          tipId,
+          streamedText: result ?? existing?.streamedText ?? "",
+        });
+        return next;
+      });
+    } catch (err) {
+      setSessions((prev) => {
+        const next = new Map(prev);
+        next.set(tipId, {
+          inProgress: false,
+          tipId,
+          streamedText: "",
+          error: "Rewrite failed. Please try again.",
+        });
+        return next;
+      });
+    }
+  }, [ai, resumeText, jobTitle, jobDescription, feedback, flushPending]);
+
+  const handleAccept = useCallback(async (tipId: string, rewrittenText: string, tipText: string) => {
+    const parts = tipId.split("-");
+    const category = parts.slice(0, -1).join("-") as RewrittenSection["category"];
+
+    const newRewrite: RewrittenSection = {
+      id: generateUUID(),
+      tipText,
+      category,
+      originalSnippet: resumeText.slice(0, 500),
+      rewrittenText,
+      acceptedAt: Date.now(),
+    };
+
+    onRewriteAccepted?.(newRewrite);
+
+    setSessions((prev) => {
+      const next = new Map(prev);
+      next.delete(tipId);
+      return next;
+    });
+  }, [resumeText, onRewriteAccepted]);
+
+  const handleDismiss = useCallback((tipId: string) => {
+    setSessions((prev) => {
+      const next = new Map(prev);
+      next.delete(tipId);
+      return next;
+    });
+  }, []);
+
+  const sharedProps = {
+    resumeText,
+    jobTitle,
+    jobDescription,
+    sessions,
+    onStartRewrite: handleStartRewrite,
+    onAccept: handleAccept,
+    onDismiss: handleDismiss,
+    textReady,
+  };
+
   return (
       <div className="flex flex-col gap-4 w-full">
         <Accordion>
           <AccordionItem id="tone-style">
             <AccordionHeader itemId="tone-style">
-              <CategoryHeader
-                  title="Tone & Style"
-                  categoryScore={feedback.toneAndStyle.score}
-              />
+              <CategoryHeader title="Tone & Style" categoryScore={feedback.toneAndStyle.score} />
             </AccordionHeader>
             <AccordionContent itemId="tone-style">
-              <CategoryContent tips={feedback.toneAndStyle.tips} />
+              <CategoryContent tips={feedback.toneAndStyle.tips} category="toneAndStyle" {...sharedProps} />
             </AccordionContent>
           </AccordionItem>
           <AccordionItem id="content">
             <AccordionHeader itemId="content">
-              <CategoryHeader
-                  title="Content"
-                  categoryScore={feedback.content.score}
-              />
+              <CategoryHeader title="Content" categoryScore={feedback.content.score} />
             </AccordionHeader>
             <AccordionContent itemId="content">
-              <CategoryContent tips={feedback.content.tips} />
+              <CategoryContent tips={feedback.content.tips} category="content" {...sharedProps} />
             </AccordionContent>
           </AccordionItem>
           <AccordionItem id="structure">
             <AccordionHeader itemId="structure">
-              <CategoryHeader
-                  title="Structure"
-                  categoryScore={feedback.structure.score}
-              />
+              <CategoryHeader title="Structure" categoryScore={feedback.structure.score} />
             </AccordionHeader>
             <AccordionContent itemId="structure">
-              <CategoryContent tips={feedback.structure.tips} />
+              <CategoryContent tips={feedback.structure.tips} category="structure" {...sharedProps} />
             </AccordionContent>
           </AccordionItem>
           <AccordionItem id="skills">
             <AccordionHeader itemId="skills">
-              <CategoryHeader
-                  title="Skills"
-                  categoryScore={feedback.skills.score}
-              />
+              <CategoryHeader title="Skills" categoryScore={feedback.skills.score} />
             </AccordionHeader>
             <AccordionContent itemId="skills">
-              <CategoryContent tips={feedback.skills.tips} />
+              <CategoryContent tips={feedback.skills.tips} category="skills" {...sharedProps} />
             </AccordionContent>
           </AccordionItem>
         </Accordion>
