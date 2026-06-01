@@ -1,8 +1,6 @@
 import {Link} from "react-router";
 import ScoreCircle from "~/components/ScoreCircle";
 import {useEffect, useState} from "react";
-import resume from "~/routes/resume";
-import * as fs from "node:fs";
 import {usePuterStore} from "~/lib/puter";
 
 const ResumeCard = ({resume: {id, companyName, jobTitle, feedback, imagePath}} : {resume : Resume}) => {
@@ -21,7 +19,7 @@ const ResumeCard = ({resume: {id, companyName, jobTitle, feedback, imagePath}} :
     }, [imagePath]);
 
   return (
-      <Link to = {'/resume/${id}'} className="resume-card-effects resume-card">ResumeCard
+      <Link to={`/resume/${id}`} className="resume-card-effects resume-card">ResumeCard
         <div className="resume-card-header">
 
           <div className="flex flex-col gap-2">

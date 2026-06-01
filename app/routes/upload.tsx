@@ -13,9 +13,11 @@ const Upload = () => {
   const navigate = useNavigate();
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusText, setStatusText] = useState('');
+  const [error, setError] = useState('');
 
   const handleAnalyze = async ({ companyName, jobTitle, jobDescription, file} : { companyName : string, jobTitle : string, jobDescription : string, file : File} ) => {
     setIsProcessing(true);
+    setError('');
     setStatusText('Uploading file...');
     try {
       const uploadedFile = await fs.upload([file]);
@@ -59,8 +61,8 @@ const Upload = () => {
       await kv.set(`resume:${uuid}`, JSON.stringify(data));
       setStatusText('Analysis completed, redirecting');
       navigate(`/resume/${uuid}`);
-    } catch (error) {
-      setStatusText(`Error: ${error instanceof Error ? error.message : 'Something went wrong'}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
       setIsProcessing(false);
     }
@@ -101,6 +103,9 @@ const Upload = () => {
                   </>
               ) : (
                   <h2>Drop your resume for an ATS score and improvement tips</h2>
+              )}
+              {error && (
+                  <p className="text-red-500 font-medium">{error}</p>
               )}
               {!isProcessing && (
                   <form id="upload-form" onSubmit={handleSubmit} className="flex flex-col gap-4 mt-8">
