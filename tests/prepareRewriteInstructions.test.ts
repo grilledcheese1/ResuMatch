@@ -1,47 +1,53 @@
 import { describe, it, expect } from 'vitest';
-import { prepareRewriteInstructions } from '../constants';
+import { prepareFullSectionInstructions } from '../constants';
 
-describe('prepareRewriteInstructions', () => {
+describe('prepareFullSectionInstructions', () => {
     const base = {
         resumeText: 'Software Engineer with 5 years experience in TypeScript and React.',
-        tip: 'Strengthen impact verbs in the experience section',
-        category: 'content',
+        sectionKey: 'experience',
+        sectionTemplate: 'Experience\n[JOB TITLE] | [Company Name]\n• Bullet point',
+        improvementTips: ['Strengthen impact verbs', 'Add quantifiable achievements'],
         jobTitle: 'Senior Frontend Engineer',
         jobDescription: 'Looking for someone experienced in React and performance optimization.',
     };
 
     it('interpolates all fields into the prompt', () => {
-        const prompt = prepareRewriteInstructions(base);
-        expect(prompt).toContain(base.tip);
-        expect(prompt).toContain(base.category);
+        const prompt = prepareFullSectionInstructions(base);
+        expect(prompt).toContain(base.sectionKey);
         expect(prompt).toContain(base.jobTitle);
         expect(prompt).toContain(base.jobDescription);
         expect(prompt).toContain(base.resumeText);
+        expect(prompt).toContain(base.sectionTemplate);
     });
 
-    it('truncates resume text at 3000 chars', () => {
-        const longText = 'x'.repeat(5000);
-        const prompt = prepareRewriteInstructions({ ...base, resumeText: longText });
-        // The truncated slice should appear, not the full string
-        expect(prompt).toContain('x'.repeat(3000));
-        expect(prompt).not.toContain('x'.repeat(3001));
+    it('includes improvement tips when provided', () => {
+        const prompt = prepareFullSectionInstructions(base);
+        expect(prompt).toContain('Strengthen impact verbs');
+        expect(prompt).toContain('Add quantifiable achievements');
+        expect(prompt).toContain('Apply these improvements');
+    });
+
+    it('uses maintain message when no tips provided', () => {
+        const prompt = prepareFullSectionInstructions({ ...base, improvementTips: [] });
+        expect(prompt).toContain('Maintain and strengthen the existing content.');
+        expect(prompt).not.toContain('Apply these improvements');
+    });
+
+    it('truncates resume text at 4000 chars', () => {
+        const longText = 'x'.repeat(6000);
+        const prompt = prepareFullSectionInstructions({ ...base, resumeText: longText });
+        expect(prompt).toContain('x'.repeat(4000));
+        expect(prompt).not.toContain('x'.repeat(4001));
     });
 
     it('still returns a valid prompt when jobDescription is empty', () => {
-        const prompt = prepareRewriteInstructions({ ...base, jobDescription: '' });
+        const prompt = prepareFullSectionInstructions({ ...base, jobDescription: '' });
         expect(prompt.length).toBeGreaterThan(50);
-        expect(prompt).toContain(base.tip);
+        expect(prompt).toContain(base.sectionKey);
     });
 
     it('still returns a valid prompt when jobTitle is empty', () => {
-        const prompt = prepareRewriteInstructions({ ...base, jobTitle: '' });
+        const prompt = prepareFullSectionInstructions({ ...base, jobTitle: '' });
         expect(prompt.length).toBeGreaterThan(50);
-    });
-
-    it('uses sectionText in prompt instead of full resumeText when provided', () => {
-        const sectionText = 'Spearheaded a migration to microservices reducing latency by 40%.';
-        const prompt = prepareRewriteInstructions({ ...base, sectionText });
-        expect(prompt).toContain(sectionText);
-        expect(prompt).not.toContain(base.resumeText);
     });
 });
