@@ -57,3 +57,5 @@ export const CATEGORY_SECTION_MAP: Record<string, SectionKey[]> = {
     skills:       ['additional', 'experience'],
     ATS:          ['experience', 'additional'],
 };
+
+export const SECTION_ORDER: SectionKey[] = ['education', 'experience', 'projects', 'activities', 'additional'];
