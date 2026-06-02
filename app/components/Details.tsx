@@ -2,9 +2,11 @@ import { useCallback, useRef, useState } from "react";
 import { cn, findRelevantSnippet } from "~/lib/utils";
 import { usePuterStore } from "~/lib/puter";
 import { prepareRewriteInstructions } from "../../constants";
+import { CATEGORY_SECTION_MAP, RESUME_SECTIONS } from "../../constants/resumeSections";
 import { generateUUID } from "~/lib/utils";
 import RewriteButton from "./RewriteButton";
 import RewritePanel from "./RewritePanel";
+import GeneratedResumeCard from "./GeneratedResumeCard";
 import {
   Accordion,
   AccordionContent,
@@ -197,6 +199,10 @@ interface DetailsProps {
   jobDescription: string;
   resumeId: string;
   onRewriteAccepted?: (rewrite: RewrittenSection) => void;
+  generatedSections: Partial<Record<SectionKey, string>>;
+  onRewriteAll: () => void;
+  isRewritingAll: boolean;
+  rewriteAllProgress: string;
 }
 
 const Details = ({
@@ -206,10 +212,13 @@ const Details = ({
   jobDescription,
   resumeId,
   onRewriteAccepted,
+  generatedSections,
+  onRewriteAll,
+  isRewritingAll,
+  rewriteAllProgress,
 }: DetailsProps) => {
   const { ai } = usePuterStore();
   const [sessions, setSessions] = useState<Map<string, RewriteSession>>(new Map());
-  // rAF ref to batch streaming state updates
   const rafRef = useRef<number | null>(null);
   const pendingChunks = useRef<Map<string, string>>(new Map());
 
@@ -250,12 +259,16 @@ const Details = ({
       return next;
     });
 
+    const sectionKey = (CATEGORY_SECTION_MAP[category]?.[0] ?? null) as SectionKey | null;
+    const sectionText = sectionKey ? RESUME_SECTIONS[sectionKey] : undefined;
+
     const prompt = prepareRewriteInstructions({
       resumeText,
       tip: tipObj.tip + ": " + tipObj.explanation,
       category,
       jobTitle,
       jobDescription,
+      sectionText,
     });
 
     try {
@@ -298,6 +311,7 @@ const Details = ({
   const handleAccept = useCallback(async (tipId: string, rewrittenText: string, tipText: string, originalSnippet: string) => {
     const parts = tipId.split("-");
     const category = parts.slice(0, -1).join("-") as RewrittenSection["category"];
+    const sectionKey = (CATEGORY_SECTION_MAP[category]?.[0] ?? undefined) as SectionKey | undefined;
 
     const newRewrite: RewrittenSection = {
       id: generateUUID(),
@@ -306,6 +320,7 @@ const Details = ({
       originalSnippet,
       rewrittenText,
       acceptedAt: Date.now(),
+      sectionKey,
     };
 
     onRewriteAccepted?.(newRewrite);
@@ -336,8 +351,17 @@ const Details = ({
     textReady,
   };
 
+  const anyInFlight = Array.from(sessions.values()).some((s) => s.inProgress);
+
   return (
       <div className="flex flex-col gap-4 w-full">
+        <GeneratedResumeCard
+            generatedSections={generatedSections}
+            onRewriteAll={onRewriteAll}
+            isRewritingAll={isRewritingAll}
+            rewriteAllProgress={rewriteAllProgress}
+            anyRewriteInFlight={anyInFlight}
+        />
         <Accordion>
           <AccordionItem id="tone-style">
             <AccordionHeader itemId="tone-style">

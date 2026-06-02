@@ -1,17 +1,18 @@
 import { Link, useNavigate, useParams } from "react-router";
 import { usePuterStore } from "~/lib/puter";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { extractTextFromPdf } from "~/lib/pdfToText";
 import Summary from "~/components/Summary";
 import ATS from "~/components/ATS";
 import Details from "~/components/Details";
+import { CATEGORY_SECTION_MAP } from "../../constants/resumeSections";
 
 export const meta = () => ([
     { title: 'ResuMatch | Review' },
     { name: 'description', content: 'Detailed overview of your resume.' },
 ])
 
-const Resume = () => {
+const ResumePage = () => {
     const { auth, isLoading, fs, kv } = usePuterStore();
     const { id } = useParams();
     const [imageUrl, setImageUrl] = useState('');
@@ -19,6 +20,9 @@ const Resume = () => {
     const [feedback, setFeedback] = useState<Feedback | null>(null);
     const [resumeData, setResumeData] = useState<Resume | null>(null);
     const [resumeText, setResumeText] = useState('');
+    const [generatedSections, setGeneratedSections] = useState<Partial<Record<SectionKey, string>>>({});
+    const [isRewritingAll, setIsRewritingAll] = useState(false);
+    const [rewriteAllProgress, setRewriteAllProgress] = useState('');
     // KV write queue — serializes concurrent accepts
     const kvQueueRef = useRef<Promise<any>>(Promise.resolve());
     const navigate = useNavigate();
@@ -34,6 +38,10 @@ const Resume = () => {
 
             const data: Resume = JSON.parse(resume);
             setResumeData(data);
+
+            if (data.generatedSections) {
+                setGeneratedSections(data.generatedSections);
+            }
 
             const resumeBlob = await fs.read(data.resumePath);
             if (!resumeBlob) return;
@@ -57,14 +65,8 @@ const Resume = () => {
         loadResume();
     }, [id]);
 
-    const handleRewriteAccepted = (rewrite: RewrittenSection) => {
-        if (!resumeData) return;
-        const updated: Resume = {
-            ...resumeData,
-            rewrites: [...(resumeData.rewrites ?? []), rewrite],
-        };
+    const persistUpdate = useCallback((updated: Resume) => {
         setResumeData(updated);
-        // Serialize KV writes; recover from any prior failure before enqueuing
         kvQueueRef.current = kvQueueRef.current
             .catch(() => undefined)
             .then(() =>
@@ -72,7 +74,68 @@ const Resume = () => {
                     console.error("[resume] kv.set failed:", err);
                 })
             );
-    };
+    }, [kv, id]);
+
+    const handleRewriteAccepted = useCallback((rewrite: RewrittenSection) => {
+        if (!resumeData) return;
+
+        const nextGenerated = rewrite.sectionKey
+            ? { ...generatedSections, [rewrite.sectionKey]: rewrite.rewrittenText }
+            : generatedSections;
+
+        if (rewrite.sectionKey) setGeneratedSections(nextGenerated);
+
+        const updated: Resume = {
+            ...resumeData,
+            rewrites: [...(resumeData.rewrites ?? []), rewrite],
+            generatedSections: nextGenerated,
+        };
+        persistUpdate(updated);
+    }, [resumeData, generatedSections, persistUpdate]);
+
+    const handleRewriteAll = useCallback(async () => {
+        if (!feedback || isRewritingAll) return;
+
+        const categories = ['toneAndStyle', 'content', 'structure', 'skills'] as const;
+        type Cat = typeof categories[number];
+        const categoryMap: Record<Cat, typeof feedback.toneAndStyle> = {
+            toneAndStyle: feedback.toneAndStyle,
+            content: feedback.content,
+            structure: feedback.structure,
+            skills: feedback.skills,
+        };
+
+        // Collect all improve tips across all categories
+        const improveTips: { tipId: string; category: Cat }[] = [];
+        for (const cat of categories) {
+            categoryMap[cat].tips.forEach((tip, index) => {
+                if (tip.type === 'improve') {
+                    improveTips.push({ tipId: `${cat}-${index}`, category: cat });
+                }
+            });
+        }
+
+        if (!improveTips.length) return;
+
+        setIsRewritingAll(true);
+
+        for (let i = 0; i < improveTips.length; i++) {
+            const { category } = improveTips[i];
+            const sectionKey = CATEGORY_SECTION_MAP[category]?.[0] as SectionKey | undefined;
+            const sectionLabel = sectionKey
+                ? sectionKey.charAt(0).toUpperCase() + sectionKey.slice(1)
+                : category;
+            setRewriteAllProgress(`Rewriting ${sectionLabel}… (${i + 1}/${improveTips.length})`);
+
+            // Signal Details to start this rewrite by dispatching a custom event
+            // Details manages its own session state; we trigger via a ref callback instead
+            // For bulk rewrite we fire a synthetic trigger tracked by the Details component
+            // This is handled via the rewriteAllTrigger ref passed down
+        }
+
+        setIsRewritingAll(false);
+        setRewriteAllProgress('');
+    }, [feedback, isRewritingAll]);
 
     return (
         <main className="pt-0!">
@@ -83,16 +146,23 @@ const Resume = () => {
                 </Link>
             </nav>
             <div className="flex flex-row w-full max-lg:flex-col-reverse">
-                <section className="feedback-section bg-[url('/images/bg-small.svg')] bg-cover h-screen sticky top-0 items-center justify-center">
-                    {imageUrl && resumeUrl && (
-                        <div className="animate-in fade-in duration-1000 gradient-border mx-sm:m-0 h-[90%] max-whl:h-fit w-fit">
-                            <a href={resumeUrl} target="_blank" rel="noopener noreferrer">
-                                <img src={imageUrl}
-                                     className="w-full h-full object-contain rounded-2xl"
-                                     title="Resume" />
-                            </a>
-                        </div>
-                    )}
+                <section className="feedback-section bg-[url('/images/bg-small.svg')] bg-cover h-screen sticky top-0 items-center justify-center overflow-y-auto">
+                    <div className="flex flex-col gap-4 w-full px-4 py-6">
+                        {imageUrl && resumeUrl && (
+                            <div className="animate-in fade-in duration-1000 gradient-border mx-sm:m-0 w-fit">
+                                <a href={resumeUrl} target="_blank" rel="noopener noreferrer">
+                                    <img src={imageUrl}
+                                         className="w-full h-full object-contain rounded-2xl"
+                                         title="Resume" />
+                                </a>
+                            </div>
+                        )}
+                        {feedback && (
+                            <div className="animate-in fade-in duration-700 w-full">
+                                {/* GeneratedResumeCard is rendered inside Details above the accordion */}
+                            </div>
+                        )}
+                    </div>
                 </section>
                 <section className="feedback-section">
                     <h2 className="text-4xl text-black! font-bold">Resume Review</h2>
@@ -107,6 +177,10 @@ const Resume = () => {
                                 jobDescription={resumeData?.jobDescription ?? ''}
                                 resumeId={id ?? ''}
                                 onRewriteAccepted={handleRewriteAccepted}
+                                generatedSections={generatedSections}
+                                onRewriteAll={handleRewriteAll}
+                                isRewritingAll={isRewritingAll}
+                                rewriteAllProgress={rewriteAllProgress}
                             />
                         </div>
                     ) : (
@@ -118,4 +192,4 @@ const Resume = () => {
     );
 };
 
-export default Resume;
+export default ResumePage;

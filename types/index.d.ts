@@ -1,3 +1,5 @@
+type SectionKey = 'education' | 'experience' | 'projects' | 'activities' | 'additional';
+
 interface RewrittenSection {
     id: string;
     tipText: string;
@@ -5,6 +7,7 @@ interface RewrittenSection {
     originalSnippet: string;
     rewrittenText: string;
     acceptedAt: number;
+    sectionKey?: SectionKey;
 }
 
 interface RewriteSession {
@@ -30,6 +33,7 @@ interface Resume {
     resumePath: string;
     feedback: Feedback;
     rewrites?: RewrittenSection[];
+    generatedSections?: Partial<Record<SectionKey, string>>;
 }
 
 interface Feedback {

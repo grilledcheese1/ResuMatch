@@ -37,4 +37,11 @@ describe('prepareRewriteInstructions', () => {
         const prompt = prepareRewriteInstructions({ ...base, jobTitle: '' });
         expect(prompt.length).toBeGreaterThan(50);
     });
+
+    it('uses sectionText in prompt instead of full resumeText when provided', () => {
+        const sectionText = 'Spearheaded a migration to microservices reducing latency by 40%.';
+        const prompt = prepareRewriteInstructions({ ...base, sectionText });
+        expect(prompt).toContain(sectionText);
+        expect(prompt).not.toContain(base.resumeText);
+    });
 });

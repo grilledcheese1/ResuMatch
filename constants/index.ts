@@ -141,14 +141,16 @@ export const prepareRewriteInstructions = ({
     category,
     jobTitle,
     jobDescription,
+    sectionText,
 }: {
     resumeText: string;
     tip: string;
     category: string;
     jobTitle: string;
     jobDescription: string;
+    sectionText?: string;
 }) => {
-    const truncated = resumeText.slice(0, 3000);
+    const targetText = sectionText ?? resumeText.slice(0, 3000);
     return `You are an expert resume writer and career coach.
 
 A resume has been analyzed and the following improvement was identified in the "${category}" category:
@@ -158,9 +160,9 @@ The job the candidate is applying for:
 - Title: ${jobTitle}
 - Description: ${jobDescription}
 
-Here is the full resume text for context:
+Here is the resume section relevant to this tip:
 ---
-${truncated}
+${targetText}
 ---
 
 Your task: Rewrite ONLY the specific passage or section of the resume that this improvement tip refers to.
