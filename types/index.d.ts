@@ -10,13 +10,6 @@ interface RewrittenSection {
     sectionKey?: SectionKey;
 }
 
-interface RewriteSession {
-    inProgress: boolean;
-    tipId: string;
-    streamedText: string;
-    error?: string;
-}
-
 interface Job {
     title: string;
     description: string;
