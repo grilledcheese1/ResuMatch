@@ -135,42 +135,51 @@ export const AIResponseFormat = `
       };
     }`;
 
-export const prepareRewriteInstructions = ({
+export const prepareFullSectionInstructions = ({
     resumeText,
-    tip,
-    category,
+    sectionKey,
+    sectionTemplate,
+    improvementTips,
     jobTitle,
     jobDescription,
-    sectionText,
 }: {
     resumeText: string;
-    tip: string;
-    category: string;
+    sectionKey: string;
+    sectionTemplate: string;
+    improvementTips: string[];
     jobTitle: string;
     jobDescription: string;
-    sectionText?: string;
 }) => {
-    const targetText = sectionText ?? resumeText.slice(0, 3000);
-    return `You are an expert resume writer and career coach.
+    const tipsBlock = improvementTips.length > 0
+        ? `Apply these improvements:\n${improvementTips.map(t => `- ${t}`).join('\n')}`
+        : 'Maintain and strengthen the existing content.';
 
-A resume has been analyzed and the following improvement was identified in the "${category}" category:
-"${tip}"
+    return `You are an expert resume writer.
+Generate the ${sectionKey} section of a professional resume.
 
-The job the candidate is applying for:
+Job the candidate is applying for:
 - Title: ${jobTitle}
 - Description: ${jobDescription}
 
-Here is the resume section relevant to this tip:
+Candidate's full current resume (extract their actual experience and content):
 ---
-${targetText}
+${resumeText.slice(0, 4000)}
 ---
 
-Your task: Rewrite ONLY the specific passage or section of the resume that this improvement tip refers to.
-- Output only the rewritten passage — no headings, no explanations, no preamble, no markdown.
-- Preserve the candidate's voice and first-person style.
-- Strengthen impact verbs, quantify where reasonable, and align with the job description keywords.
-- Keep the output concise — match the approximate length of the original passage.
-- Do not rewrite the entire resume. Target only what the tip addresses.`;
+${tipsBlock}
+
+Section template to follow (format only — replace placeholders with real content):
+---
+${sectionTemplate}
+---
+
+Rules:
+- Output ONLY the section content, no markdown backticks, no preamble
+- Use the candidate's actual information from their resume
+- Keep bullet points as • characters
+- Match the template structure exactly
+- Write in plain text, no bold/italic markdown
+- Keep the section appropriately concise for a one-page resume`;
 };
 
 export const prepareInstructions = ({
