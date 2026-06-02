@@ -19,7 +19,7 @@ const RewriteButton = ({ onRewrite, isLoading, disabled, disabledReason }: Rewri
                 "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200",
                 isDisabled
                     ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : "bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 hover:border-purple-300 cursor-pointer"
+                    : "bg-black text-white hover:bg-gray-800 cursor-pointer"
             )}
         >
             {isLoading ? (

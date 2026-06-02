@@ -5,6 +5,7 @@ import { extractTextFromPdf } from "~/lib/pdfToText";
 import Summary from "~/components/Summary";
 import ATS from "~/components/ATS";
 import Details from "~/components/Details";
+import GeneratedResumeCard from "~/components/GeneratedResumeCard";
 import { CATEGORY_SECTION_MAP } from "../../constants/resumeSections";
 
 export const meta = () => ([
@@ -23,8 +24,12 @@ const ResumePage = () => {
     const [generatedSections, setGeneratedSections] = useState<Partial<Record<SectionKey, string>>>({});
     const [isRewritingAll, setIsRewritingAll] = useState(false);
     const [rewriteAllProgress, setRewriteAllProgress] = useState('');
+    const [rewriteAllDone, setRewriteAllDone] = useState(false);
+    const [activeSection, setActiveSection] = useState<SectionKey | null>(null);
     // KV write queue — serializes concurrent accepts
     const kvQueueRef = useRef<Promise<any>>(Promise.resolve());
+    // Imperative bridge to Details.handleStartRewrite
+    const triggerRewriteRef = useRef<((tipId: string) => Promise<void>) | null>(null);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -54,7 +59,6 @@ const ResumePage = () => {
 
             setFeedback(data.feedback);
 
-            // Extract text in the background — non-blocking
             extractTextFromPdf(pdfBlob).then((result) => {
                 if (!result.error && result.text) {
                     setResumeText(result.text);
@@ -94,7 +98,8 @@ const ResumePage = () => {
     }, [resumeData, generatedSections, persistUpdate]);
 
     const handleRewriteAll = useCallback(async () => {
-        if (!feedback || isRewritingAll) return;
+        if (!feedback || isRewritingAll || rewriteAllDone) return;
+        if (!triggerRewriteRef.current) return;
 
         const categories = ['toneAndStyle', 'content', 'structure', 'skills'] as const;
         type Cat = typeof categories[number];
@@ -105,7 +110,6 @@ const ResumePage = () => {
             skills: feedback.skills,
         };
 
-        // Collect all improve tips across all categories
         const improveTips: { tipId: string; category: Cat }[] = [];
         for (const cat of categories) {
             categoryMap[cat].tips.forEach((tip, index) => {
@@ -120,22 +124,29 @@ const ResumePage = () => {
         setIsRewritingAll(true);
 
         for (let i = 0; i < improveTips.length; i++) {
-            const { category } = improveTips[i];
+            const { tipId, category } = improveTips[i];
             const sectionKey = CATEGORY_SECTION_MAP[category]?.[0] as SectionKey | undefined;
             const sectionLabel = sectionKey
                 ? sectionKey.charAt(0).toUpperCase() + sectionKey.slice(1)
                 : category;
+
+            setActiveSection(sectionKey ?? null);
             setRewriteAllProgress(`Rewriting ${sectionLabel}… (${i + 1}/${improveTips.length})`);
 
-            // Signal Details to start this rewrite by dispatching a custom event
-            // Details manages its own session state; we trigger via a ref callback instead
-            // For bulk rewrite we fire a synthetic trigger tracked by the Details component
-            // This is handled via the rewriteAllTrigger ref passed down
+            try {
+                await triggerRewriteRef.current(tipId);
+            } catch {
+                // continue to next tip on failure
+            }
         }
 
+        setActiveSection(null);
         setIsRewritingAll(false);
         setRewriteAllProgress('');
-    }, [feedback, isRewritingAll]);
+        setRewriteAllDone(true);
+    }, [feedback, isRewritingAll, rewriteAllDone]);
+
+    const rewriteLocked = isRewritingAll || rewriteAllDone;
 
     return (
         <main className="pt-0!">
@@ -146,10 +157,10 @@ const ResumePage = () => {
                 </Link>
             </nav>
             <div className="flex flex-row w-full max-lg:flex-col-reverse">
-                <section className="feedback-section bg-[url('/images/bg-small.svg')] bg-cover h-screen sticky top-0 items-center justify-center overflow-y-auto">
-                    <div className="flex flex-col gap-4 w-full px-4 py-6">
+                <section className="feedback-section bg-[url('/images/bg-small.svg')] bg-cover h-screen sticky top-0 overflow-y-auto">
+                    <div className="flex flex-col gap-6 w-full items-center justify-start py-6">
                         {imageUrl && resumeUrl && (
-                            <div className="animate-in fade-in duration-1000 gradient-border mx-sm:m-0 w-fit">
+                            <div className="animate-in fade-in duration-1000 gradient-border w-full max-w-sm">
                                 <a href={resumeUrl} target="_blank" rel="noopener noreferrer">
                                     <img src={imageUrl}
                                          className="w-full h-full object-contain rounded-2xl"
@@ -158,8 +169,16 @@ const ResumePage = () => {
                             </div>
                         )}
                         {feedback && (
-                            <div className="animate-in fade-in duration-700 w-full">
-                                {/* GeneratedResumeCard is rendered inside Details above the accordion */}
+                            <div className="animate-in fade-in duration-700 w-full max-w-sm">
+                                <GeneratedResumeCard
+                                    generatedSections={generatedSections}
+                                    activeSection={activeSection}
+                                    onRewriteAll={handleRewriteAll}
+                                    isRewritingAll={isRewritingAll}
+                                    rewriteAllProgress={rewriteAllProgress}
+                                    anyRewriteInFlight={false}
+                                    rewriteAllDone={rewriteAllDone}
+                                />
                             </div>
                         )}
                     </div>
@@ -177,10 +196,8 @@ const ResumePage = () => {
                                 jobDescription={resumeData?.jobDescription ?? ''}
                                 resumeId={id ?? ''}
                                 onRewriteAccepted={handleRewriteAccepted}
-                                generatedSections={generatedSections}
-                                onRewriteAll={handleRewriteAll}
-                                isRewritingAll={isRewritingAll}
-                                rewriteAllProgress={rewriteAllProgress}
+                                rewriteLocked={rewriteLocked}
+                                triggerRewriteRef={triggerRewriteRef}
                             />
                         </div>
                     ) : (

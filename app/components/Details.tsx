@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { cn, findRelevantSnippet } from "~/lib/utils";
 import { usePuterStore } from "~/lib/puter";
 import { prepareRewriteInstructions } from "../../constants";
@@ -6,7 +6,6 @@ import { CATEGORY_SECTION_MAP, RESUME_SECTIONS } from "../../constants/resumeSec
 import { generateUUID } from "~/lib/utils";
 import RewriteButton from "./RewriteButton";
 import RewritePanel from "./RewritePanel";
-import GeneratedResumeCard from "./GeneratedResumeCard";
 import {
   Accordion,
   AccordionContent,
@@ -74,6 +73,7 @@ interface TipWithRewrite {
   onAccept: (tipId: string, rewritten: string, tipText: string, originalSnippet: string) => void;
   onDismiss: (tipId: string) => void;
   textReady: boolean;
+  rewriteLocked: boolean;
 }
 
 const TipCard = ({
@@ -88,6 +88,7 @@ const TipCard = ({
   onAccept,
   onDismiss,
   textReady,
+  rewriteLocked,
 }: TipWithRewrite) => {
   return (
       <div
@@ -111,8 +112,12 @@ const TipCard = ({
               <RewriteButton
                   onRewrite={() => onStartRewrite(tipId)}
                   isLoading={!!session?.inProgress}
-                  disabled={!textReady}
-                  disabledReason="Resume text is loading — try again in a moment"
+                  disabled={!textReady || rewriteLocked}
+                  disabledReason={
+                      rewriteLocked
+                          ? "This section was already rewritten by Rewrite Entire Resume"
+                          : "Resume text is loading — try again in a moment"
+                  }
               />
           )}
         </div>
@@ -140,6 +145,7 @@ const CategoryContent = ({
   onAccept,
   onDismiss,
   textReady,
+  rewriteLocked,
 }: {
   tips: { type: "good" | "improve"; tip: string; explanation: string }[];
   category: "toneAndStyle" | "content" | "structure" | "skills";
@@ -151,6 +157,7 @@ const CategoryContent = ({
   onAccept: (tipId: string, rewritten: string, tipText: string, originalSnippet: string) => void;
   onDismiss: (tipId: string) => void;
   textReady: boolean;
+  rewriteLocked: boolean;
 }) => {
   return (
       <div className="flex flex-col gap-4 items-center w-full">
@@ -184,6 +191,7 @@ const CategoryContent = ({
                     onAccept={onAccept}
                     onDismiss={onDismiss}
                     textReady={textReady}
+                    rewriteLocked={rewriteLocked}
                 />
             );
           })}
@@ -199,10 +207,8 @@ interface DetailsProps {
   jobDescription: string;
   resumeId: string;
   onRewriteAccepted?: (rewrite: RewrittenSection) => void;
-  generatedSections: Partial<Record<SectionKey, string>>;
-  onRewriteAll: () => void;
-  isRewritingAll: boolean;
-  rewriteAllProgress: string;
+  rewriteLocked: boolean;
+  triggerRewriteRef: React.MutableRefObject<((tipId: string) => Promise<void>) | null>;
 }
 
 const Details = ({
@@ -212,10 +218,8 @@ const Details = ({
   jobDescription,
   resumeId,
   onRewriteAccepted,
-  generatedSections,
-  onRewriteAll,
-  isRewritingAll,
-  rewriteAllProgress,
+  rewriteLocked,
+  triggerRewriteRef,
 }: DetailsProps) => {
   const { ai } = usePuterStore();
   const [sessions, setSessions] = useState<Map<string, RewriteSession>>(new Map());
@@ -340,6 +344,11 @@ const Details = ({
     });
   }, []);
 
+  // Expose handleStartRewrite to parent for bulk rewrite
+  useEffect(() => {
+    triggerRewriteRef.current = handleStartRewrite;
+  }, [handleStartRewrite, triggerRewriteRef]);
+
   const sharedProps = {
     resumeText,
     jobTitle,
@@ -349,19 +358,11 @@ const Details = ({
     onAccept: handleAccept,
     onDismiss: handleDismiss,
     textReady,
+    rewriteLocked,
   };
-
-  const anyInFlight = Array.from(sessions.values()).some((s) => s.inProgress);
 
   return (
       <div className="flex flex-col gap-4 w-full">
-        <GeneratedResumeCard
-            generatedSections={generatedSections}
-            onRewriteAll={onRewriteAll}
-            isRewritingAll={isRewritingAll}
-            rewriteAllProgress={rewriteAllProgress}
-            anyRewriteInFlight={anyInFlight}
-        />
         <Accordion>
           <AccordionItem id="tone-style">
             <AccordionHeader itemId="tone-style">
