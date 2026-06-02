@@ -38,12 +38,14 @@ const Summary = ({ feedback }: { feedback: Feedback }) => {
 
     return (
         <div ref={summaryRef} className="bg-white rounded-[12px] border border-[#dfdfdf] w-full">
-            <div className="flex flex-row, items-center p-4 gap-8">
-                <ScoreGauge score={feedback.overallScore} />
-                <div className="flex flex-col gap-2">
-                    <h2 className="!text-xl !font-semibold !text-[#171717]">Your Resume Score</h2>
-                    <p className="text-sm text-[#707070]">
-                        This Score is calculated based on the variables listed below.
+            <div className="flex flex-row items-center p-5 gap-5">
+                <div className="flex-shrink-0">
+                    <ScoreGauge score={feedback.overallScore} />
+                </div>
+                <div className="flex flex-col gap-1.5 min-w-0 flex-1">
+                    <h2 className="!text-lg !font-semibold !text-[#171717] leading-snug">Your Resume Score</h2>
+                    <p className="text-sm text-[#707070] leading-relaxed">
+                        Calculated from tone, content, structure, and skills.
                     </p>
                 </div>
             </div>
