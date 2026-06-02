@@ -15,6 +15,7 @@ interface GeneratedResumeCardProps {
     onGenerate: () => void;
     isGenerating: boolean;
     generationComplete: boolean;
+    resumeTextReady: boolean;
 }
 
 const GeneratedResumeCard = ({
@@ -23,10 +24,11 @@ const GeneratedResumeCard = ({
     onGenerate,
     isGenerating,
     generationComplete,
+    resumeTextReady,
 }: GeneratedResumeCardProps) => {
     const acceptedCount = SECTION_ORDER.filter((k) => generatedSections[k]).length;
     const total = SECTION_ORDER.length;
-    const buttonDisabled = isGenerating || generationComplete;
+    const buttonDisabled = isGenerating || generationComplete || !resumeTextReady;
 
     return (
         <div className="flex flex-col rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden w-full">
@@ -47,6 +49,7 @@ const GeneratedResumeCard = ({
                 <button
                     onClick={onGenerate}
                     disabled={buttonDisabled}
+                    title={!resumeTextReady ? "Loading resume content…" : undefined}
                     className={cn(
                         "text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors",
                         buttonDisabled

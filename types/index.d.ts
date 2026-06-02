@@ -1,15 +1,5 @@
 type SectionKey = 'education' | 'experience' | 'projects' | 'activities' | 'additional';
 
-interface RewrittenSection {
-    id: string;
-    tipText: string;
-    category: "toneAndStyle" | "content" | "structure" | "skills";
-    originalSnippet: string;
-    rewrittenText: string;
-    acceptedAt: number;
-    sectionKey?: SectionKey;
-}
-
 interface Job {
     title: string;
     description: string;
@@ -25,7 +15,6 @@ interface Resume {
     imagePath: string;
     resumePath: string;
     feedback: Feedback;
-    rewrites?: RewrittenSection[];
     generatedSections?: Partial<Record<SectionKey, string>>;
 }
 

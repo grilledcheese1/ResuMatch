@@ -29,6 +29,7 @@ const ResumePage = () => {
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatingSection, setGeneratingSection] = useState<SectionKey | null>(null);
     const [generationComplete, setGenerationComplete] = useState(false);
+    const resumeTextReady = resumeText.length > 0;
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -138,7 +139,9 @@ const ResumePage = () => {
 
         setGeneratingSection(null);
         setIsGenerating(false);
-        setGenerationComplete(true);
+        if (Object.keys(accumulated).length > 0) {
+            setGenerationComplete(true);
+        }
     }, [feedback, resumeText, resumeData, isGenerating, generationComplete, generatedSections, ai, persistUpdate]);
 
     const showToggle = isGenerating || generationComplete || Object.keys(generatedSections).length > 0;
@@ -204,6 +207,7 @@ const ResumePage = () => {
                                         onGenerate={handleGenerateResume}
                                         isGenerating={isGenerating}
                                         generationComplete={generationComplete}
+                                        resumeTextReady={resumeTextReady}
                                     />
                                 </div>
                             )}
