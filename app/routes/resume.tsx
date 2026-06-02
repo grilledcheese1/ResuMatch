@@ -1,12 +1,15 @@
 import { Link, useNavigate, useParams } from "react-router";
 import { usePuterStore } from "~/lib/puter";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useCallback, useState } from "react";
 import { extractTextFromPdf } from "~/lib/pdfToText";
 import Summary from "~/components/Summary";
 import ATS from "~/components/ATS";
 import Details from "~/components/Details";
 import GeneratedResumeCard from "~/components/GeneratedResumeCard";
-import { CATEGORY_SECTION_MAP } from "../../constants/resumeSections";
+import GeneratedResumePanel from "~/components/GeneratedResumePanel";
+import { prepareFullSectionInstructions } from "../../constants";
+import { SECTION_ORDER, CATEGORY_SECTION_MAP, RESUME_SECTIONS } from "../../constants/resumeSections";
+import { cn } from "~/lib/utils";
 
 export const meta = () => ([
     { title: 'ResuMatch | Review' },
@@ -14,7 +17,7 @@ export const meta = () => ([
 ])
 
 const ResumePage = () => {
-    const { auth, isLoading, fs, kv } = usePuterStore();
+    const { auth, isLoading, fs, kv, ai } = usePuterStore();
     const { id } = useParams();
     const [imageUrl, setImageUrl] = useState('');
     const [resumeUrl, setResumeUrl] = useState('');
@@ -22,14 +25,10 @@ const ResumePage = () => {
     const [resumeData, setResumeData] = useState<Resume | null>(null);
     const [resumeText, setResumeText] = useState('');
     const [generatedSections, setGeneratedSections] = useState<Partial<Record<SectionKey, string>>>({});
-    const [isRewritingAll, setIsRewritingAll] = useState(false);
-    const [rewriteAllProgress, setRewriteAllProgress] = useState('');
-    const [rewriteAllDone, setRewriteAllDone] = useState(false);
-    const [activeSection, setActiveSection] = useState<SectionKey | null>(null);
-    // KV write queue — serializes concurrent accepts
-    const kvQueueRef = useRef<Promise<any>>(Promise.resolve());
-    // Imperative bridge to Details.handleStartRewrite
-    const triggerRewriteRef = useRef<((tipId: string) => Promise<void>) | null>(null);
+    const [showGenerated, setShowGenerated] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [generatingSection, setGeneratingSection] = useState<SectionKey | null>(null);
+    const [generationComplete, setGenerationComplete] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -46,6 +45,8 @@ const ResumePage = () => {
 
             if (data.generatedSections) {
                 setGeneratedSections(data.generatedSections);
+                const allDone = SECTION_ORDER.every((k) => !!data.generatedSections?.[k]);
+                if (allDone) setGenerationComplete(true);
             }
 
             const resumeBlob = await fs.read(data.resumePath);
@@ -71,38 +72,20 @@ const ResumePage = () => {
 
     const persistUpdate = useCallback((updated: Resume) => {
         setResumeData(updated);
-        kvQueueRef.current = kvQueueRef.current
-            .catch(() => undefined)
-            .then(() =>
-                kv.set(`resume:${id}`, JSON.stringify(updated)).catch((err) => {
-                    console.error("[resume] kv.set failed:", err);
-                })
-            );
+        kv.set(`resume:${id}`, JSON.stringify(updated)).catch((err) => {
+            console.error("[resume] kv.set failed:", err);
+        });
     }, [kv, id]);
 
-    const handleRewriteAccepted = useCallback((rewrite: RewrittenSection) => {
-        if (!resumeData) return;
+    const handleGenerateResume = useCallback(async () => {
+        if (!feedback || !resumeText || !resumeData || isGenerating || generationComplete) return;
 
-        const nextGenerated = rewrite.sectionKey
-            ? { ...generatedSections, [rewrite.sectionKey]: rewrite.rewrittenText }
-            : generatedSections;
-
-        if (rewrite.sectionKey) setGeneratedSections(nextGenerated);
-
-        const updated: Resume = {
-            ...resumeData,
-            rewrites: [...(resumeData.rewrites ?? []), rewrite],
-            generatedSections: nextGenerated,
-        };
-        persistUpdate(updated);
-    }, [resumeData, generatedSections, persistUpdate]);
-
-    const handleRewriteAll = useCallback(async () => {
-        if (!feedback || isRewritingAll || rewriteAllDone) return;
-        if (!triggerRewriteRef.current) return;
+        setIsGenerating(true);
+        setShowGenerated(true);
 
         const categories = ['toneAndStyle', 'content', 'structure', 'skills'] as const;
         type Cat = typeof categories[number];
+
         const categoryMap: Record<Cat, typeof feedback.toneAndStyle> = {
             toneAndStyle: feedback.toneAndStyle,
             content: feedback.content,
@@ -110,43 +93,55 @@ const ResumePage = () => {
             skills: feedback.skills,
         };
 
-        const improveTips: { tipId: string; category: Cat }[] = [];
-        for (const cat of categories) {
-            categoryMap[cat].tips.forEach((tip, index) => {
-                if (tip.type === 'improve') {
-                    improveTips.push({ tipId: `${cat}-${index}`, category: cat });
+        const accumulated: Partial<Record<SectionKey, string>> = { ...generatedSections };
+
+        for (const sectionKey of SECTION_ORDER) {
+            setGeneratingSection(sectionKey);
+
+            // Collect all improve tips from categories that map to this section
+            const improvementTips: string[] = [];
+            for (const cat of categories) {
+                const mappedSections = CATEGORY_SECTION_MAP[cat] ?? [];
+                if (mappedSections.includes(sectionKey)) {
+                    categoryMap[cat].tips
+                        .filter((t) => t.type === 'improve')
+                        .forEach((t) => {
+                            if ('explanation' in t) {
+                                improvementTips.push(`${t.tip}: ${t.explanation}`);
+                            } else {
+                                improvementTips.push(t.tip);
+                            }
+                        });
                 }
+            }
+
+            const prompt = prepareFullSectionInstructions({
+                resumeText,
+                sectionKey,
+                sectionTemplate: RESUME_SECTIONS[sectionKey],
+                improvementTips,
+                jobTitle: resumeData.jobTitle ?? '',
+                jobDescription: resumeData.jobDescription ?? '',
             });
-        }
-
-        if (!improveTips.length) return;
-
-        setIsRewritingAll(true);
-
-        for (let i = 0; i < improveTips.length; i++) {
-            const { tipId, category } = improveTips[i];
-            const sectionKey = CATEGORY_SECTION_MAP[category]?.[0] as SectionKey | undefined;
-            const sectionLabel = sectionKey
-                ? sectionKey.charAt(0).toUpperCase() + sectionKey.slice(1)
-                : category;
-
-            setActiveSection(sectionKey ?? null);
-            setRewriteAllProgress(`Rewriting ${sectionLabel}… (${i + 1}/${improveTips.length})`);
 
             try {
-                await triggerRewriteRef.current(tipId);
+                const result = await ai.rewrite(prompt);
+                if (result) {
+                    accumulated[sectionKey] = result;
+                    setGeneratedSections({ ...accumulated });
+                    persistUpdate({ ...resumeData, generatedSections: { ...accumulated } });
+                }
             } catch {
-                // continue to next tip on failure
+                // continue to next section on failure
             }
         }
 
-        setActiveSection(null);
-        setIsRewritingAll(false);
-        setRewriteAllProgress('');
-        setRewriteAllDone(true);
-    }, [feedback, isRewritingAll, rewriteAllDone]);
+        setGeneratingSection(null);
+        setIsGenerating(false);
+        setGenerationComplete(true);
+    }, [feedback, resumeText, resumeData, isGenerating, generationComplete, generatedSections, ai, persistUpdate]);
 
-    const rewriteLocked = isRewritingAll || rewriteAllDone;
+    const showToggle = isGenerating || generationComplete || Object.keys(generatedSections).length > 0;
 
     return (
         <main className="pt-0!">
@@ -157,48 +152,89 @@ const ResumePage = () => {
                 </Link>
             </nav>
             <div className="flex flex-row w-full max-lg:flex-col-reverse">
-                <section className="feedback-section bg-[url('/images/bg-small.svg')] bg-cover h-screen sticky top-0 overflow-y-auto">
-                    <div className="flex flex-col gap-6 w-full items-center justify-start py-6">
-                        {imageUrl && resumeUrl && (
-                            <div className="animate-in fade-in duration-1000 gradient-border w-full max-w-sm">
-                                <a href={resumeUrl} target="_blank" rel="noopener noreferrer">
-                                    <img src={imageUrl}
-                                         className="w-full h-full object-contain rounded-2xl"
-                                         title="Resume" />
-                                </a>
-                            </div>
+                {/* Left panel — sticky sidebar with slider */}
+                <section className="feedback-section bg-[url('/images/bg-small.svg')] bg-cover h-screen sticky top-0 overflow-hidden relative">
+                    {/* Toggle tabs */}
+                    {showToggle && (
+                        <div className="absolute top-4 left-4 right-4 z-20 flex gap-1 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-xl p-1 shadow-sm">
+                            <button
+                                onClick={() => setShowGenerated(false)}
+                                className={cn(
+                                    "flex-1 text-xs font-semibold py-1.5 rounded-lg transition-all duration-200 cursor-pointer",
+                                    !showGenerated
+                                        ? "bg-[#171717] text-white shadow-sm"
+                                        : "text-gray-500 hover:text-gray-800"
+                                )}
+                            >
+                                Your Resume
+                            </button>
+                            <button
+                                onClick={() => setShowGenerated(true)}
+                                className={cn(
+                                    "flex-1 text-xs font-semibold py-1.5 rounded-lg transition-all duration-200 cursor-pointer",
+                                    showGenerated
+                                        ? "bg-[#3ecf8e] text-[#171717] shadow-sm"
+                                        : "text-gray-500 hover:text-gray-800"
+                                )}
+                            >
+                                Generated ✦
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Original resume view */}
+                    <div className="h-full overflow-y-auto">
+                        <div className={cn("flex flex-col gap-6 w-full items-center justify-start py-6", showToggle && "pt-16")}>
+                            {imageUrl && resumeUrl && (
+                                <div className="animate-in fade-in duration-1000 gradient-border w-full max-w-sm">
+                                    <a href={resumeUrl} target="_blank" rel="noopener noreferrer">
+                                        <img
+                                            src={imageUrl}
+                                            className="w-full h-full object-contain rounded-2xl"
+                                            title="Resume"
+                                        />
+                                    </a>
+                                </div>
+                            )}
+                            {feedback && (
+                                <div className="animate-in fade-in duration-700 w-full max-w-sm">
+                                    <GeneratedResumeCard
+                                        generatedSections={generatedSections}
+                                        activeSection={generatingSection}
+                                        onGenerate={handleGenerateResume}
+                                        isGenerating={isGenerating}
+                                        generationComplete={generationComplete}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Generated resume panel — slides in from left */}
+                    <div
+                        className={cn(
+                            "absolute inset-0 z-10 transition-transform duration-300 ease-out",
+                            showGenerated ? "translate-x-0" : "-translate-x-full"
                         )}
-                        {feedback && (
-                            <div className="animate-in fade-in duration-700 w-full max-w-sm">
-                                <GeneratedResumeCard
-                                    generatedSections={generatedSections}
-                                    activeSection={activeSection}
-                                    onRewriteAll={handleRewriteAll}
-                                    isRewritingAll={isRewritingAll}
-                                    rewriteAllProgress={rewriteAllProgress}
-                                    anyRewriteInFlight={false}
-                                    rewriteAllDone={rewriteAllDone}
-                                />
-                            </div>
-                        )}
+                        style={{ willChange: 'transform' }}
+                    >
+                        <GeneratedResumePanel
+                            generatedSections={generatedSections}
+                            isGenerating={isGenerating}
+                            generatingSection={generatingSection}
+                            resumeText={resumeText}
+                        />
                     </div>
                 </section>
+
+                {/* Right panel — feedback */}
                 <section className="feedback-section">
                     <h2 className="text-4xl text-black! font-bold">Resume Review</h2>
                     {feedback ? (
                         <div className="flex flex-col animate-in fade-in gap-8 duration-1000">
                             <Summary feedback={feedback} />
                             <ATS score={feedback.ATS.score || 0} suggestions={feedback.ATS.tips || []} />
-                            <Details
-                                feedback={feedback}
-                                resumeText={resumeText}
-                                jobTitle={resumeData?.jobTitle ?? ''}
-                                jobDescription={resumeData?.jobDescription ?? ''}
-                                resumeId={id ?? ''}
-                                onRewriteAccepted={handleRewriteAccepted}
-                                rewriteLocked={rewriteLocked}
-                                triggerRewriteRef={triggerRewriteRef}
-                            />
+                            <Details feedback={feedback} />
                         </div>
                     ) : (
                         <img src="/images/resume-scan-2.gif" className="w-full" />
