@@ -1,7 +1,5 @@
 import { cn } from "~/lib/utils";
-import { SECTION_LABELS } from "../../constants/resumeSections";
-
-const SECTION_ORDER: SectionKey[] = ['education', 'experience', 'projects', 'activities', 'additional'];
+import { SECTION_ORDER, SECTION_LABELS } from "../../constants/resumeSections";
 
 const SKELETON_WIDTHS: Record<SectionKey, string[]> = {
     education: ['w-3/4', 'w-1/2', 'w-2/3', 'w-5/12'],
@@ -14,25 +12,21 @@ const SKELETON_WIDTHS: Record<SectionKey, string[]> = {
 interface GeneratedResumeCardProps {
     generatedSections: Partial<Record<SectionKey, string>>;
     activeSection: SectionKey | null;
-    onRewriteAll: () => void;
-    isRewritingAll: boolean;
-    rewriteAllProgress: string;
-    anyRewriteInFlight: boolean;
-    rewriteAllDone: boolean;
+    onGenerate: () => void;
+    isGenerating: boolean;
+    generationComplete: boolean;
 }
 
 const GeneratedResumeCard = ({
     generatedSections,
     activeSection,
-    onRewriteAll,
-    isRewritingAll,
-    rewriteAllProgress,
-    anyRewriteInFlight,
-    rewriteAllDone,
+    onGenerate,
+    isGenerating,
+    generationComplete,
 }: GeneratedResumeCardProps) => {
     const acceptedCount = SECTION_ORDER.filter((k) => generatedSections[k]).length;
     const total = SECTION_ORDER.length;
-    const buttonDisabled = isRewritingAll || anyRewriteInFlight || rewriteAllDone;
+    const buttonDisabled = isGenerating || generationComplete;
 
     return (
         <div className="flex flex-col rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden w-full">
@@ -51,7 +45,7 @@ const GeneratedResumeCard = ({
                     </span>
                 </div>
                 <button
-                    onClick={onRewriteAll}
+                    onClick={onGenerate}
                     disabled={buttonDisabled}
                     className={cn(
                         "text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors",
@@ -60,7 +54,11 @@ const GeneratedResumeCard = ({
                             : "bg-black text-white hover:bg-gray-800 cursor-pointer"
                     )}
                 >
-                    {isRewritingAll ? rewriteAllProgress : rewriteAllDone ? "Rewrite Complete" : "Rewrite Entire Resume"}
+                    {isGenerating
+                        ? `Generating… (${acceptedCount}/5)`
+                        : generationComplete
+                            ? "Resume Generated"
+                            : "Generate Resume"}
                 </button>
             </div>
 
