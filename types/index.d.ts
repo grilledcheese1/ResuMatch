@@ -7,6 +7,12 @@ interface Job {
     requiredSkills: string[];
 }
 
+type ParsedResumeData = {
+    name?: string;
+    contact?: string;
+    [key: string]: unknown;
+};
+
 interface Resume {
     id: string;
     companyName?: string;
@@ -15,6 +21,7 @@ interface Resume {
     imagePath: string;
     resumePath: string;
     feedback: Feedback;
+    parsedData?: ParsedResumeData;
     generatedSections?: Partial<Record<SectionKey, string>>;
 }
 
