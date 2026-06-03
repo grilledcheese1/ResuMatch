@@ -1,53 +1,89 @@
 import { describe, it, expect } from 'vitest';
-import { prepareFullSectionInstructions } from '../constants';
+import { prepareParseResumeInstructions, prepareFormatSectionInstructions } from '../constants';
 
-describe('prepareFullSectionInstructions', () => {
+describe('prepareParseResumeInstructions', () => {
+    const resumeText = 'John Smith\njohn@email.com • 555-555-5555\n\nExperience\nSoftware Engineer at TechCorp\n• Built features\n• Led team projects';
+
+    it('includes the resume text in the prompt', () => {
+        const prompt = prepareParseResumeInstructions({ resumeText });
+        expect(prompt).toContain('John Smith');
+        expect(prompt).toContain('john@email.com');
+    });
+
+    it('truncates resume text at 5000 chars', () => {
+        const longText = 'x'.repeat(7000);
+        const prompt = prepareParseResumeInstructions({ resumeText: longText });
+        expect(prompt).toContain('x'.repeat(5000));
+        expect(prompt).not.toContain('x'.repeat(5001));
+    });
+
+    it('instructs the AI to return only JSON', () => {
+        const prompt = prepareParseResumeInstructions({ resumeText });
+        expect(prompt).toContain('Return ONLY a valid JSON object');
+        expect(prompt).toContain('no markdown');
+        expect(prompt).toContain('no backticks');
+    });
+
+    it('includes all required section keys in the schema', () => {
+        const prompt = prepareParseResumeInstructions({ resumeText });
+        expect(prompt).toContain('"education"');
+        expect(prompt).toContain('"experience"');
+        expect(prompt).toContain('"projects"');
+        expect(prompt).toContain('"activities"');
+        expect(prompt).toContain('"additional"');
+        expect(prompt).toContain('"name"');
+        expect(prompt).toContain('"contact"');
+    });
+
+    it('still returns a valid prompt for empty resume text', () => {
+        const prompt = prepareParseResumeInstructions({ resumeText: '' });
+        expect(prompt.length).toBeGreaterThan(100);
+        expect(prompt).toContain('Return ONLY a valid JSON object');
+    });
+});
+
+describe('prepareFormatSectionInstructions', () => {
     const base = {
-        resumeText: 'Software Engineer with 5 years experience in TypeScript and React.',
         sectionKey: 'experience',
-        sectionTemplate: 'Experience\n[JOB TITLE] | [Company Name]\n• Bullet point',
-        improvementTips: ['Strengthen impact verbs', 'Add quantifiable achievements'],
+        sectionData: JSON.stringify({ entries: [{ jobTitle: 'Engineer', company: 'TechCorp', dates: '2022-2024', bullets: ['Built X'] }] }),
+        resumeText: 'John Smith\nSoftware Engineer at TechCorp 2022-2024',
+        template: 'Experience\n[JOB TITLE] | [Company Name]\n• Bullet point',
         jobTitle: 'Senior Frontend Engineer',
-        jobDescription: 'Looking for someone experienced in React and performance optimization.',
+        jobDescription: 'React and TypeScript experience required.',
     };
 
     it('interpolates all fields into the prompt', () => {
-        const prompt = prepareFullSectionInstructions(base);
+        const prompt = prepareFormatSectionInstructions(base);
         expect(prompt).toContain(base.sectionKey);
         expect(prompt).toContain(base.jobTitle);
         expect(prompt).toContain(base.jobDescription);
+        expect(prompt).toContain(base.template);
+    });
+
+    it('uses structured section data when provided', () => {
+        const prompt = prepareFormatSectionInstructions(base);
+        expect(prompt).toContain('Structured data extracted from the resume');
+        expect(prompt).toContain('TechCorp');
+        expect(prompt).not.toContain('No structured data available');
+    });
+
+    it('falls back to raw resume text when sectionData is null', () => {
+        const prompt = prepareFormatSectionInstructions({ ...base, sectionData: null });
+        expect(prompt).toContain('No structured data available');
         expect(prompt).toContain(base.resumeText);
-        expect(prompt).toContain(base.sectionTemplate);
+        expect(prompt).not.toContain('Structured data extracted');
     });
 
-    it('includes improvement tips when provided', () => {
-        const prompt = prepareFullSectionInstructions(base);
-        expect(prompt).toContain('Strengthen impact verbs');
-        expect(prompt).toContain('Add quantifiable achievements');
-        expect(prompt).toContain('Apply these improvements');
+    it('truncates resumeText fallback at 3000 chars', () => {
+        const longText = 'y'.repeat(5000);
+        const prompt = prepareFormatSectionInstructions({ ...base, sectionData: null, resumeText: longText });
+        expect(prompt).toContain('y'.repeat(3000));
+        expect(prompt).not.toContain('y'.repeat(3001));
     });
 
-    it('uses maintain message when no tips provided', () => {
-        const prompt = prepareFullSectionInstructions({ ...base, improvementTips: [] });
-        expect(prompt).toContain('Maintain and strengthen the existing content.');
-        expect(prompt).not.toContain('Apply these improvements');
-    });
-
-    it('truncates resume text at 4000 chars', () => {
-        const longText = 'x'.repeat(6000);
-        const prompt = prepareFullSectionInstructions({ ...base, resumeText: longText });
-        expect(prompt).toContain('x'.repeat(4000));
-        expect(prompt).not.toContain('x'.repeat(4001));
-    });
-
-    it('still returns a valid prompt when jobDescription is empty', () => {
-        const prompt = prepareFullSectionInstructions({ ...base, jobDescription: '' });
-        expect(prompt.length).toBeGreaterThan(50);
+    it('still returns a valid prompt when jobTitle and jobDescription are empty', () => {
+        const prompt = prepareFormatSectionInstructions({ ...base, jobTitle: '', jobDescription: '' });
+        expect(prompt.length).toBeGreaterThan(100);
         expect(prompt).toContain(base.sectionKey);
-    });
-
-    it('still returns a valid prompt when jobTitle is empty', () => {
-        const prompt = prepareFullSectionInstructions({ ...base, jobTitle: '' });
-        expect(prompt.length).toBeGreaterThan(50);
     });
 });
