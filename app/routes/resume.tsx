@@ -151,6 +151,12 @@ const ResumePage = () => {
                     <img src="/icons/back.svg" alt="Logo" className="w-2.5 h-2.5" />
                     <span className="text-gray-800 text-sm font-semibold">Back to Home</span>
                 </Link>
+                <button
+                    onClick={async () => { await auth.signOut(); navigate('/auth'); }}
+                    className="flex flex-row items-center gap-2 border border-[#dfdfdf] hover:border-[#171717] hover:text-[#171717] rounded-[6px] p-2.5 shadow-sm transition-colors duration-200 cursor-pointer bg-white text-sm font-semibold text-[#707070]"
+                >
+                    Log Out
+                </button>
             </nav>
             <div className="flex flex-row w-full max-lg:flex-col-reverse">
                 {/* Left panel — sticky sidebar with slider */}
