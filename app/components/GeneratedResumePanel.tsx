@@ -14,6 +14,9 @@ interface GeneratedResumePanelProps {
     isGenerating: boolean;
     generatingSection: SectionKey | null;
     resumeText: string;
+    imageUrl: string;
+    generationComplete: boolean;
+    parsedData: ParsedResumeData | null;
 }
 
 const GeneratedResumePanel = ({
@@ -21,10 +24,67 @@ const GeneratedResumePanel = ({
     isGenerating,
     generatingSection,
     resumeText,
+    imageUrl,
+    parsedData,
 }: GeneratedResumePanelProps) => {
-    const lines = resumeText.split('\n').map(l => l.trim()).filter(Boolean);
-    const candidateName = lines[0] ?? 'Your Resume';
-    const contactLine = lines[1] ?? '';
+    const hasSections = Object.keys(generatedSections).length > 0;
+
+    // State 1 — Placeholder
+    if (!isGenerating && !hasSections) {
+        return (
+            <div className="bg-white h-full overflow-y-auto flex flex-col items-center justify-start pt-12 pb-6 px-4">
+                <img
+                    src="/images/ResumeExample.png"
+                    alt="Resume format example"
+                    className="w-full max-w-sm rounded-xl border border-gray-200 shadow-sm opacity-60"
+                />
+                <p className="text-xs text-[#707070] text-center mt-3 leading-relaxed">
+                    Your reformatted resume will appear here
+                </p>
+            </div>
+        );
+    }
+
+    // State 2 — Generating with no sections yet
+    if (isGenerating && !hasSections) {
+        return (
+            <div className="bg-white h-full overflow-y-auto flex flex-col items-center justify-start pt-12 pb-6 px-4">
+                <div className="relative w-full max-w-sm">
+                    <img
+                        src={imageUrl || '/images/ResumeExample.png'}
+                        alt="Resume"
+                        className="w-full rounded-xl border border-gray-200 shadow-sm"
+                        style={{ filter: 'blur(4px)', opacity: 0.6 }}
+                    />
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                        <svg
+                            className="animate-spin size-6 text-[#3ecf8e]"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                        >
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                        </svg>
+                        <p className="text-sm font-semibold text-[#171717] bg-white/90 px-3 py-1 rounded-full shadow-sm">
+                            {generatingSection
+                                ? `Formatting ${SECTION_LABELS[generatingSection]}…`
+                                : 'Parsing resume…'}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // State 3 — Sections available (may still be generating later sections)
+    const candidateName =
+        (parsedData?.name as string | undefined) ??
+        resumeText.split('\n').find(l => l.trim().length > 2)?.trim() ??
+        'Your Resume';
+    const contactLine =
+        (parsedData?.contact as string | undefined) ??
+        resumeText.split('\n').map(l => l.trim()).filter(Boolean)[1] ??
+        '';
 
     return (
         <div className="bg-white overflow-y-auto h-full">
