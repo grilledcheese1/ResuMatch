@@ -89,8 +89,12 @@ const ResumePage = () => {
         try {
             const parseResult = await ai.rewrite(prepareParseResumeInstructions({ resumeText }));
             if (parseResult) {
-                parsed = JSON.parse(parseResult) as ParsedResumeData;
-                setParsedData(parsed);
+                const candidate = JSON.parse(parseResult) as ParsedResumeData;
+                // Only accept if it's a non-empty object with at least a name or one section key
+                if (typeof candidate === 'object' && candidate !== null && Object.keys(candidate).length > 0) {
+                    parsed = candidate;
+                    setParsedData(parsed);
+                }
             }
         } catch {
             // Phase 2 falls back to raw resumeText when parse fails
@@ -135,10 +139,10 @@ const ResumePage = () => {
 
     const handleGeneratedTabClick = useCallback(() => {
         setShowGenerated(true);
-        if (!isGenerating && !generationComplete && resumeText) {
+        if (!isGenerating && !generationComplete && resumeText && feedback) {
             handleGenerateResume();
         }
-    }, [isGenerating, generationComplete, resumeText, handleGenerateResume]);
+    }, [isGenerating, generationComplete, resumeText, feedback, handleGenerateResume]);
 
     return (
         <main className="pt-0!">
