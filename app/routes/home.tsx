@@ -19,25 +19,20 @@ export default function Home() {
   const [loadingResumes, setLoadingResumes] = useState(false);
 
   useEffect(() => {
-    if (!isLoading && !auth.isAuthenticated) navigate('/auth?next=/');
-  }, [isLoading, auth.isAuthenticated])
-
-  useEffect(() => {
+    if (isLoading) return;
+    if (!auth.isAuthenticated) {
+      navigate('/auth?next=/');
+      return;
+    }
     const loadResumes = async () => {
       setLoadingResumes(true);
-
-      const resumes = (await kv.list('resume:*', true)) as KVItem[];
-
-      const parsedResumes = resumes?.map((resume) => (
-        JSON.parse(resume.value) as Resume
-      ))
-      console.log("parsedResumes", parsedResumes);
+      const items = (await kv.list('resume:*', true)) as KVItem[];
+      const parsedResumes = items?.map((resume) => JSON.parse(resume.value) as Resume);
       setResumes(parsedResumes || []);
       setLoadingResumes(false);
-
-    }
+    };
     loadResumes();
-  }, [])
+  }, [isLoading, auth.isAuthenticated])
 
   if (isLoading) return (
     <div className="min-h-screen flex items-center justify-center bg-white">
