@@ -25,6 +25,7 @@ const GeneratedResumePanel = ({
     generatingSection,
     resumeText,
     imageUrl,
+    generationComplete,
     parsedData,
 }: GeneratedResumePanelProps) => {
     const hasSections = Object.keys(generatedSections).length > 0;
@@ -114,6 +115,10 @@ const GeneratedResumePanel = ({
                             {rewritten ? (
                                 <p className="text-[11px] text-[#171717] whitespace-pre-wrap leading-relaxed animate-in fade-in duration-700">
                                     {rewritten}
+                                </p>
+                            ) : generationComplete ? (
+                                <p className="text-[11px] text-[#707070] italic">
+                                    No content was generated for this section.
                                 </p>
                             ) : (
                                 <div className="flex flex-col gap-1.5">
