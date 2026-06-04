@@ -42,8 +42,6 @@ const ResumePage = () => {
     const rightSectionRef = useRef<HTMLElement>(null);
     const ctaRef = useRef<HTMLDivElement>(null);
     const leftSectionRef = useRef<HTMLElement>(null);
-    const originalWidthRef = useRef<number>(0);
-    const panelTweenRef = useRef<gsap.core.Tween | null>(null);
     const revealedRef = useRef(false);
 
     useEffect(() => {
@@ -173,39 +171,6 @@ const ResumePage = () => {
         });
     };
 
-    const togglePanel = () => {
-        const el = leftSectionRef.current;
-        if (!el) return;
-        if (reducedMotion()) {
-            if (panelOpen) {
-                gsap.set(el, { flex: 'none', width: 0 });
-            } else {
-                gsap.set(el, { clearProps: 'width,flex' });
-            }
-            setPanelOpen(prev => !prev);
-            return;
-        }
-        panelTweenRef.current?.kill();
-        if (panelOpen) {
-            const w = el.offsetWidth;
-            if (w > 0) originalWidthRef.current = w;
-            gsap.set(el, { flex: 'none', width: w });
-            panelTweenRef.current = gsap.to(el, {
-                width: 0,
-                duration: 0.5,
-                ease: 'power2.inOut',
-            });
-            setPanelOpen(false);
-        } else {
-            panelTweenRef.current = gsap.to(el, {
-                width: originalWidthRef.current,
-                duration: 0.5,
-                ease: 'power2.inOut',
-                onComplete: () => gsap.set(el, { clearProps: 'width,flex' }),
-            });
-            setPanelOpen(true);
-        }
-    };
 
     // Back button slide-in
     useGSAP(() => {
@@ -286,7 +251,7 @@ const ResumePage = () => {
                 <div className="flex flex-row items-center gap-2">
                     {imageUrl && (
                         <button
-                            onClick={togglePanel}
+                            onClick={() => setPanelOpen(p => !p)}
                             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#171717] bg-white border border-[#dfdfdf] rounded-[6px] hover:border-[#c7c7c7] hover:bg-[#fafafa] transition-all duration-200 cursor-pointer shadow-sm"
                             aria-label={panelOpen ? 'Hide resume preview' : 'Show resume preview'}
                         >
@@ -308,12 +273,11 @@ const ResumePage = () => {
                     </button>
                 </div>
             </nav>
-            <div className="flex flex-row w-full max-lg:flex-col-reverse">
+            <div className="flex flex-row w-full max-lg:flex-col-reverse overflow-x-hidden">
                 {/* Left panel — sticky sidebar with slider */}
                 <section
                     ref={leftSectionRef}
                     className="feedback-section bg-[url('/images/bg-small.svg')] bg-cover h-screen sticky top-0 overflow-hidden relative"
-                    style={{ flexShrink: 0 }}
                 >
                     {/* Toggle tabs — always visible */}
                     <div className="absolute top-4 left-4 right-4 z-20 flex gap-1 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-xl p-1 shadow-sm">
@@ -383,7 +347,17 @@ const ResumePage = () => {
                 <section
                     ref={rightSectionRef}
                     className="feedback-section"
-                    style={{ flex: '1 1 0', minWidth: 0 }}
+                    style={{
+                        flex: '1 1 0',
+                        minWidth: 0,
+                        transition: 'margin-left 300ms ease-out, width 300ms ease-out',
+                        ...(panelOpen ? {} : {
+                            marginLeft: 'calc(-50%)',
+                            width: '100%',
+                            position: 'relative',
+                            zIndex: 10,
+                        }),
+                    }}
                 >
                     <h2 className="text-4xl text-black! font-bold">Resume Review</h2>
 
