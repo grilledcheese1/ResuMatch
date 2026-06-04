@@ -78,11 +78,11 @@ const GeneratedResumePanel = ({
 
     // State 3 — Sections available (may still be generating later sections)
     const candidateName =
-        (parsedData?.name as string | undefined) ??
+        (typeof parsedData?.name === 'string' && parsedData.name.trim() ? parsedData.name.trim() : null) ??
         resumeText.split('\n').find(l => l.trim().length > 2)?.trim() ??
         'Your Resume';
     const contactLine =
-        (parsedData?.contact as string | undefined) ??
+        (typeof parsedData?.contact === 'string' && parsedData.contact.trim() ? parsedData.contact.trim() : null) ??
         resumeText.split('\n').map(l => l.trim()).filter(Boolean)[1] ??
         '';
 
