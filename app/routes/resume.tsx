@@ -273,7 +273,7 @@ const ResumePage = () => {
                     </button>
                 </div>
             </nav>
-            <div className="flex flex-row w-full max-lg:flex-col-reverse overflow-x-hidden">
+            <div className="relative flex flex-row w-full max-lg:flex-col-reverse overflow-x-hidden">
                 {/* Left panel — sticky sidebar with slider */}
                 <section
                     ref={leftSectionRef}
@@ -346,18 +346,8 @@ const ResumePage = () => {
                 {/* Right panel — feedback */}
                 <section
                     ref={rightSectionRef}
-                    className="feedback-section"
-                    style={{
-                        flex: '1 1 0',
-                        minWidth: 0,
-                        transition: 'margin-left 300ms ease-out, width 300ms ease-out',
-                        ...(panelOpen ? {} : {
-                            marginLeft: 'calc(-50%)',
-                            width: '100%',
-                            position: 'relative',
-                            zIndex: 10,
-                        }),
-                    }}
+                    className="absolute top-0 bottom-0 right-0 z-10 overflow-y-auto flex flex-col gap-8 px-8 py-6 bg-white transition-[left] duration-300 ease-out"
+                    style={{ left: panelOpen ? '50%' : '0' }}
                 >
                     <h2 className="text-4xl text-black! font-bold">Resume Review</h2>
 
