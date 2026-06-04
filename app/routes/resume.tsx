@@ -346,7 +346,7 @@ const ResumePage = () => {
                 {/* Right panel — feedback */}
                 <section
                     ref={rightSectionRef}
-                    className="absolute top-0 bottom-0 right-0 z-10 overflow-y-auto flex flex-col gap-8 px-8 py-6 bg-white transition-[left] duration-300 ease-out"
+                    className="lg:absolute top-0 bottom-0 right-0 z-10 overflow-y-auto flex flex-col gap-8 px-8 py-6 bg-white transition-[left] duration-300 ease-out"
                     style={{ left: panelOpen ? '50%' : '0' }}
                 >
                     <h2 className="text-4xl text-black! font-bold">Resume Review</h2>
