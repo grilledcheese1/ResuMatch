@@ -78,7 +78,7 @@ interface PuterStore {
         ) => Promise<AIResponse | undefined>;
         rewrite: (
             prompt: string,
-            onChunk: (chunk: string) => void
+            onChunk?: (chunk: string) => void
         ) => Promise<string | undefined>;
         img2txt: (
             image: string | File | Blob,
@@ -351,7 +351,7 @@ export const usePuterStore = create<PuterStore>((set, get) => {
 
     const rewrite = async (
         prompt: string,
-        onChunk: (chunk: string) => void
+        onChunk?: (chunk: string) => void
     ): Promise<string | undefined> => {
         const puter = getPuter();
         if (!puter) {
@@ -374,7 +374,7 @@ export const usePuterStore = create<PuterStore>((set, get) => {
                         : chunk?.text ?? chunk?.delta?.text ?? chunk?.choices?.[0]?.delta?.content ?? "";
                 if (text) {
                     accumulated += text;
-                    onChunk(text);
+                    onChunk?.(text);
                 }
             }
         } catch {
@@ -390,7 +390,7 @@ export const usePuterStore = create<PuterStore>((set, get) => {
                         ? response.message.content
                         : (response.message.content as any[])[0]?.text ?? "";
                 if (accumulated.length < text.length) {
-                    onChunk(text.slice(accumulated.length));
+                    onChunk?.(text.slice(accumulated.length));
                 }
                 accumulated = text;
             }
@@ -484,7 +484,7 @@ export const usePuterStore = create<PuterStore>((set, get) => {
                 options?: PuterChatOptions
             ) => chat(prompt, imageURL, testMode, options),
             feedback: (path: string, message: string) => feedback(path, message),
-            rewrite: (prompt: string, onChunk: (chunk: string) => void) =>
+            rewrite: (prompt: string, onChunk?: (chunk: string) => void) =>
                 rewrite(prompt, onChunk),
             img2txt: (image: string | File | Blob, testMode?: boolean) =>
                 img2txt(image, testMode),
