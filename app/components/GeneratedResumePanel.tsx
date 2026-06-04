@@ -100,23 +100,6 @@ const GeneratedResumePanel = ({
                     </div>
                 )}
 
-                {/* Download button — shown only when all sections are complete */}
-                {generationComplete && (
-                    <div className="mb-6">
-                        <Suspense fallback={
-                            <button disabled className="primary-button w-full text-sm opacity-50">
-                                Preparing PDF…
-                            </button>
-                        }>
-                            <ResumePDFDownloadButton
-                                candidateName={candidateName ?? 'Resume'}
-                                contactLine={contactLine ?? ''}
-                                generatedSections={generatedSections}
-                            />
-                        </Suspense>
-                    </div>
-                )}
-
                 {/* Sections */}
                 {SECTION_ORDER.map((key) => {
                     const rewritten = generatedSections[key];
@@ -156,6 +139,23 @@ const GeneratedResumePanel = ({
                         </div>
                     );
                 })}
+
+                {/* Download button — shown only when all sections are complete */}
+                {generationComplete && (
+                    <div className="mt-6">
+                        <Suspense fallback={
+                            <button disabled className="primary-button w-full text-sm opacity-50">
+                                Preparing PDF…
+                            </button>
+                        }>
+                            <ResumePDFDownloadButton
+                                candidateName={candidateName ?? 'Resume'}
+                                contactLine={contactLine ?? ''}
+                                generatedSections={generatedSections}
+                            />
+                        </Suspense>
+                    </div>
+                )}
             </div>
         </div>
     );
