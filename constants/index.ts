@@ -187,17 +187,17 @@ Job the candidate is applying for:
 
 ${dataBlock}
 
-Section template to follow (structure only — replace all placeholders with real candidate data):
+Section template to follow (structure reference only — do not copy placeholder text into output):
 ---
 ${template}
 ---
 
 Rules:
 - Output ONLY the section content — no headings, no markdown backticks, no preamble
-- Fill every placeholder with the candidate\'s actual data
+- Fill placeholders only when the data exists in the candidate\'s information above; do not invent or fabricate missing fields — omit any line whose data is unavailable
 - Use • for bullet points
 - Plain text only, no bold/italic markdown
-- Match the template structure exactly
+- Match the template structure for fields that are present; omit fields entirely when data is absent
 - Keep the section concise and appropriate for a one-page resume`;
 };
 
