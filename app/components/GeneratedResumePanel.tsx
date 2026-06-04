@@ -78,28 +78,24 @@ const GeneratedResumePanel = ({
     }
 
     // State 3 — Sections available (may still be generating later sections)
-    const candidateName =
-        (typeof parsedData?.name === 'string' && parsedData.name.trim() ? parsedData.name.trim() : null) ??
-        resumeText.split('\n').find(l => l.trim().length > 2)?.trim() ??
-        'Your Resume';
-    const contactLine =
-        (typeof parsedData?.contact === 'string' && parsedData.contact.trim() ? parsedData.contact.trim() : null) ??
-        resumeText.split('\n').map(l => l.trim()).filter(Boolean)[1] ??
-        '';
+    const candidateName = typeof parsedData?.name === 'string' && parsedData.name.trim() ? parsedData.name.trim() : null;
+    const contactLine = typeof parsedData?.contact === 'string' && parsedData.contact.trim() ? parsedData.contact.trim() : null;
 
     return (
         <div className="bg-white overflow-y-auto h-full">
             <div className="px-6 pt-12 pb-8">
-                {/* Header */}
-                <div className="mb-4">
-                    <h1 className="font-heading text-2xl font-bold text-[#171717] leading-tight">
-                        {candidateName}
-                    </h1>
-                    {contactLine && (
-                        <p className="text-xs text-[#707070] mt-0.5">{contactLine}</p>
-                    )}
-                    <div className="border-b border-gray-200 mt-3" />
-                </div>
+                {/* Header — only rendered when parsedData provides clean fields */}
+                {candidateName && (
+                    <div className="mb-4">
+                        <h1 className="font-heading text-2xl font-bold text-[#171717] leading-tight">
+                            {candidateName}
+                        </h1>
+                        {contactLine && (
+                            <p className="text-xs text-[#707070] mt-0.5">{contactLine}</p>
+                        )}
+                        <div className="border-b border-gray-200 mt-3" />
+                    </div>
+                )}
 
                 {/* Sections */}
                 {SECTION_ORDER.map((key) => {
