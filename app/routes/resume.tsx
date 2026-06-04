@@ -134,7 +134,7 @@ const ResumePage = () => {
 
         setGeneratingSection(null);
         setIsGenerating(false);
-        if (Object.keys(accumulated).length > 0) setGenerationComplete(true);
+        if (SECTION_ORDER.every(k => !!accumulated[k])) setGenerationComplete(true);
     }, [feedback, resumeText, resumeData, isGenerating, generationComplete, generatedSections, ai, persistUpdate]);
 
     const handleGeneratedTabClick = useCallback(() => {
