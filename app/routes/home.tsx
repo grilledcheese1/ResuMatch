@@ -13,14 +13,14 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export default function Home() {
-  const {auth, kv} = usePuterStore();
+  const { auth, isLoading, kv } = usePuterStore();
   const navigate = useNavigate();
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [loadingResumes, setLoadingResumes] = useState(false);
 
   useEffect(() => {
-    if(!auth.isAuthenticated) navigate('/auth?next=/');
-  }, [auth.isAuthenticated])
+    if (!isLoading && !auth.isAuthenticated) navigate('/auth?next=/');
+  }, [isLoading, auth.isAuthenticated])
 
   useEffect(() => {
     const loadResumes = async () => {
@@ -38,6 +38,12 @@ export default function Home() {
     }
     loadResumes();
   }, [])
+
+  if (isLoading) return (
+    <div className="min-h-screen flex items-center justify-center bg-white">
+      <img src="/images/resume-scan-2.gif" className="w-[200px]" />
+    </div>
+  );
 
   return <main className="bg-white !pt-0">
     <Navbar />

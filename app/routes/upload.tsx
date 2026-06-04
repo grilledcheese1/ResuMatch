@@ -1,4 +1,4 @@
-import {type FormEvent, useState} from 'react'
+import {type FormEvent, useEffect, useState} from 'react'
 import React from 'react'
 import Navbar from "~/components/Navbar";
 import FileUploader from "~/components/FileUploader";
@@ -14,6 +14,10 @@ const Upload = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusText, setStatusText] = useState('');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!isLoading && !auth.isAuthenticated) navigate('/auth?next=/upload');
+  }, [isLoading, auth.isAuthenticated]);
 
   const handleAnalyze = async ({ companyName, jobTitle, jobDescription, file} : { companyName : string, jobTitle : string, jobDescription : string, file : File} ) => {
     setIsProcessing(true);
@@ -88,6 +92,12 @@ const Upload = () => {
   const handleFileSelect = (file: File | null) => {
     setFile(file)
   }
+
+  if (isLoading) return (
+    <div className="min-h-screen flex items-center justify-center bg-white">
+      <img src="/images/resume-scan-2.gif" className="w-[200px]" />
+    </div>
+  );
 
   return (
       <main className="bg-white !pt-0">
