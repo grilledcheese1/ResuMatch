@@ -99,6 +99,8 @@ const Upload = () => {
     </div>
   );
 
+  if (!auth.isAuthenticated) return null;
+
   return (
       <main className="bg-white !pt-0">
       <Navbar />
