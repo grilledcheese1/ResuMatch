@@ -152,7 +152,7 @@ const ResumePage = () => {
                     <span className="text-gray-800 text-sm font-semibold">Back to Home</span>
                 </Link>
                 <button
-                    onClick={async () => { await auth.signOut(); navigate('/auth'); }}
+                    onClick={async () => { const ok = await auth.signOut(); if (ok) navigate('/auth'); }}
                     className="flex flex-row items-center gap-2 border border-[#dfdfdf] hover:border-[#171717] hover:text-[#171717] rounded-[6px] p-2.5 shadow-sm transition-colors duration-200 cursor-pointer bg-white text-sm font-semibold text-[#707070]"
                 >
                     Log Out

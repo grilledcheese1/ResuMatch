@@ -50,7 +50,7 @@ interface PuterStore {
         user: PuterUser | null;
         isAuthenticated: boolean;
         signIn: () => Promise<void>;
-        signOut: () => Promise<void>;
+        signOut: () => Promise<boolean>;
         refreshUser: () => Promise<void>;
         checkAuthStatus: () => Promise<boolean>;
         getUser: () => PuterUser | null;
@@ -178,11 +178,11 @@ export const usePuterStore = create<PuterStore>((set, get) => {
         }
     };
 
-    const signOut = async (): Promise<void> => {
+    const signOut = async (): Promise<boolean> => {
         const puter = getPuter();
         if (!puter) {
             setError("Puter.js not available");
-            return;
+            return false;
         }
 
         set({ isLoading: true, error: null });
@@ -201,9 +201,11 @@ export const usePuterStore = create<PuterStore>((set, get) => {
                 },
                 isLoading: false,
             });
+            return true;
         } catch (err) {
             const msg = err instanceof Error ? err.message : "Sign out failed";
             setError(msg);
+            return false;
         }
     };
 
