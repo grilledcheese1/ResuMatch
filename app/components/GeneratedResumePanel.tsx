@@ -1,5 +1,8 @@
+import { lazy, Suspense } from "react";
 import { cn } from "~/lib/utils";
 import { SECTION_ORDER, SECTION_LABELS } from "../../constants/resumeSections";
+
+const ResumePDFDownloadButton = lazy(() => import('./ResumePDFDownloadButton'));
 
 const SKELETON_WIDTHS: Record<SectionKey, string[]> = {
     education: ['w-3/4', 'w-1/2', 'w-2/3', 'w-5/12'],
@@ -78,28 +81,24 @@ const GeneratedResumePanel = ({
     }
 
     // State 3 — Sections available (may still be generating later sections)
-    const candidateName =
-        (typeof parsedData?.name === 'string' && parsedData.name.trim() ? parsedData.name.trim() : null) ??
-        resumeText.split('\n').find(l => l.trim().length > 2)?.trim() ??
-        'Your Resume';
-    const contactLine =
-        (typeof parsedData?.contact === 'string' && parsedData.contact.trim() ? parsedData.contact.trim() : null) ??
-        resumeText.split('\n').map(l => l.trim()).filter(Boolean)[1] ??
-        '';
+    const candidateName = typeof parsedData?.name === 'string' && parsedData.name.trim() ? parsedData.name.trim() : null;
+    const contactLine = typeof parsedData?.contact === 'string' && parsedData.contact.trim() ? parsedData.contact.trim() : null;
 
     return (
         <div className="bg-white overflow-y-auto h-full">
             <div className="px-6 pt-12 pb-8">
-                {/* Header */}
-                <div className="mb-4">
-                    <h1 className="font-heading text-2xl font-bold text-[#171717] leading-tight">
-                        {candidateName}
-                    </h1>
-                    {contactLine && (
-                        <p className="text-xs text-[#707070] mt-0.5">{contactLine}</p>
-                    )}
-                    <div className="border-b border-gray-200 mt-3" />
-                </div>
+                {/* Header — only rendered when parsedData provides clean fields */}
+                {candidateName && (
+                    <div className="mb-4">
+                        <h1 className="font-heading text-2xl font-bold text-[#171717] leading-tight">
+                            {candidateName}
+                        </h1>
+                        {contactLine && (
+                            <p className="text-xs text-[#707070] mt-0.5">{contactLine}</p>
+                        )}
+                        <div className="border-b border-gray-200 mt-3" />
+                    </div>
+                )}
 
                 {/* Sections */}
                 {SECTION_ORDER.map((key) => {
@@ -140,6 +139,23 @@ const GeneratedResumePanel = ({
                         </div>
                     );
                 })}
+
+                {/* Download button — shown only when all sections are complete */}
+                {generationComplete && (
+                    <div className="mt-6">
+                        <Suspense fallback={
+                            <button disabled className="primary-button w-full text-sm opacity-50">
+                                Preparing PDF…
+                            </button>
+                        }>
+                            <ResumePDFDownloadButton
+                                candidateName={candidateName ?? 'Resume'}
+                                contactLine={contactLine ?? ''}
+                                generatedSections={generatedSections}
+                            />
+                        </Suspense>
+                    </div>
+                )}
             </div>
         </div>
     );
