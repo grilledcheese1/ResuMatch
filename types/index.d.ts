@@ -1,18 +1,4 @@
-interface RewrittenSection {
-    id: string;
-    tipText: string;
-    category: "toneAndStyle" | "content" | "structure" | "skills";
-    originalSnippet: string;
-    rewrittenText: string;
-    acceptedAt: number;
-}
-
-interface RewriteSession {
-    inProgress: boolean;
-    tipId: string;
-    streamedText: string;
-    error?: string;
-}
+type SectionKey = 'education' | 'experience' | 'projects' | 'activities' | 'additional';
 
 interface Job {
     title: string;
@@ -20,6 +6,12 @@ interface Job {
     location: string;
     requiredSkills: string[];
 }
+
+type ParsedResumeData = {
+    name?: string;
+    contact?: string;
+    [key: string]: unknown;
+};
 
 interface Resume {
     id: string;
@@ -29,7 +21,8 @@ interface Resume {
     imagePath: string;
     resumePath: string;
     feedback: Feedback;
-    rewrites?: RewrittenSection[];
+    parsedData?: ParsedResumeData;
+    generatedSections?: Partial<Record<SectionKey, string>>;
 }
 
 interface Feedback {

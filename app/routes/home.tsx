@@ -15,7 +15,7 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export default function Home() {
-  const { auth, kv } = usePuterStore();
+  const { auth, isLoading, kv } = usePuterStore();
   const navigate = useNavigate();
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [loadingResumes, setLoadingResumes] = useState(false);
@@ -25,22 +25,20 @@ export default function Home() {
   const ctaRef = useRef<HTMLAnchorElement>(null);
 
   useEffect(() => {
-    if (!auth.isAuthenticated) navigate('/auth?next=/');
-  }, [auth.isAuthenticated]);
-
-  useEffect(() => {
+    if (isLoading) return;
+    if (!auth.isAuthenticated) {
+      navigate('/auth?next=/');
+      return;
+    }
     const loadResumes = async () => {
       setLoadingResumes(true);
-      const resumes = (await kv.list('resume:*', true)) as KVItem[];
-      const parsedResumes = resumes?.map((resume) => (
-        JSON.parse(resume.value) as Resume
-      ));
-      console.log("parsedResumes", parsedResumes);
+      const items = (await kv.list('resume:*', true)) as KVItem[];
+      const parsedResumes = items?.map((resume) => JSON.parse(resume.value) as Resume);
       setResumes(parsedResumes || []);
       setLoadingResumes(false);
     };
     loadResumes();
-  }, []);
+  }, [isLoading, auth.isAuthenticated]);
 
   // Heading entrance
   useGSAP(() => {
@@ -62,46 +60,44 @@ export default function Home() {
     scaleIn(ctaRef.current, { delay: 0.2 });
   }, { dependencies: [loadingResumes, resumes] });
 
-  return (
-    <main className="bg-white !pt-0">
-      <Navbar />
+  if (isLoading) return (
+    <div className="min-h-screen flex items-center justify-center bg-white">
+      <img src="/images/resume-scan-2.gif" className="w-[200px]" />
+    </div>
+  );
 
-      <section className="main-section">
-        <div ref={headingRef} className="page-heading py-16">
-          <h1>Track your Applications & Resume Ratings</h1>
-          {!loadingResumes && resumes?.length == 0 ? (
+  return <main className="bg-white !pt-0">
+    <Navbar />
+
+    <section className="main-section">
+      <div ref={headingRef} className="page-heading py-16">
+        <h1>Track your Applications & Resume Ratings</h1>
+        {!loadingResumes && resumes?.length == 0 ? (
             <h2>No resumes found. Upload your first resume to get feedback.</h2>
-          ) : (
+        ): (
             <h2>Review your submissions and check AI-powered feedback.</h2>
-          )}
-        </div>
-
-        {loadingResumes && (
-          <div className="flex flex-col items-center justify-center py-12">
-            <img src="/images/resume-scan-2.gif" className="w-[200px]" />
-          </div>
         )}
-
-        {!loadingResumes && resumes?.length == 0 && (
+      </div>
+      {loadingResumes && (
+          <div className="flex flex-col items-center justify-center py-12">
+            <img src="/images/resume-scan-2.gif" className="w-[200px]"/>
+          </div>
+      )}
+      {!loadingResumes && resumes?.length == 0 && (
           <div className="flex flex-col items-center justify-center mt-10 gap-4">
-            <Link
-              ref={ctaRef}
-              to="/upload"
-              className="primary-button w-fit text-xl font-semibold"
-            >
+            <Link ref={ctaRef} to="/upload" className="primary-button w-fit text-xl font-semibold">
               Upload Resume
             </Link>
           </div>
-        )}
-      </section>
-
-      {!loadingResumes && resumes.length > 0 && (
-        <div ref={gridRef} className="resumes-section">
-          {resumes.map((resume) => (
-            <ResumeCard key={resume.id} resume={resume} />
-          ))}
-        </div>
       )}
-    </main>
-  );
+    </section>
+
+    {!loadingResumes && resumes.length > 0 && (
+      <div ref={gridRef} className="resumes-section">
+        {resumes.map((resume) => (
+          <ResumeCard key={resume.id} resume={resume} />
+        ))}
+      </div>
+    )}
+  </main>;
 }

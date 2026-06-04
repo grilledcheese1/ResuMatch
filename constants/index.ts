@@ -135,40 +135,70 @@ export const AIResponseFormat = `
       };
     }`;
 
-export const prepareRewriteInstructions = ({
+export const prepareParseResumeInstructions = ({
     resumeText,
-    tip,
-    category,
+}: {
+    resumeText: string;
+}) =>
+    `You are a resume data extractor. Parse the following resume into a structured JSON object.
+
+Resume text:
+---
+${resumeText.slice(0, 5000)}
+---
+
+Return ONLY a valid JSON object (no markdown, no backticks, no explanation) with this structure:
+{
+  "name": "Full name of the candidate",
+  "contact": "Single contact line: address, phone, email",
+  "education": { "entries": [ { "institutionName": "...", "degree": "...", "major": "...", "location": "...", "graduationYear": "...", "gpa": "...", "coursework": "..." } ] },
+  "experience": { "entries": [ { "jobTitle": "...", "company": "...", "location": "...", "dates": "...", "bullets": ["..."] } ] },
+  "projects": { "entries": [ { "title": "...", "dates": "...", "description": "...", "role": "...", "technologies": "...", "outcome": "..." } ] },
+  "activities": { "entries": [ { "name": "...", "dates": "...", "description": "...", "skills": "...", "achievements": "..." } ] },
+  "additional": { "languageSkills": "...", "technicalSkills": "...", "volunteerExperience": "...", "interests": "..." }
+}
+If a field is absent from the resume, use null or omit it. Return only the JSON.`;
+
+export const prepareFormatSectionInstructions = ({
+    sectionKey,
+    sectionData,
+    resumeText,
+    template,
     jobTitle,
     jobDescription,
 }: {
+    sectionKey: string;
+    sectionData: string | null;
     resumeText: string;
-    tip: string;
-    category: string;
+    template: string;
     jobTitle: string;
     jobDescription: string;
 }) => {
-    const truncated = resumeText.slice(0, 3000);
-    return `You are an expert resume writer and career coach.
+    const dataBlock = sectionData
+        ? `Structured data extracted from the resume for this section:\n${sectionData}`
+        : `No structured data available — use the raw resume text below:\n${resumeText.slice(0, 3000)}`;
 
-A resume has been analyzed and the following improvement was identified in the "${category}" category:
-"${tip}"
+    return `You are an expert resume writer.
+Format the "${sectionKey}" section of a professional resume.
 
-The job the candidate is applying for:
+Job the candidate is applying for:
 - Title: ${jobTitle}
 - Description: ${jobDescription}
 
-Here is the full resume text for context:
+${dataBlock}
+
+Section template to follow (structure reference only — do not copy placeholder text into output):
 ---
-${truncated}
+${template}
 ---
 
-Your task: Rewrite ONLY the specific passage or section of the resume that this improvement tip refers to.
-- Output only the rewritten passage — no headings, no explanations, no preamble, no markdown.
-- Preserve the candidate's voice and first-person style.
-- Strengthen impact verbs, quantify where reasonable, and align with the job description keywords.
-- Keep the output concise — match the approximate length of the original passage.
-- Do not rewrite the entire resume. Target only what the tip addresses.`;
+Rules:
+- Output ONLY the section content — no headings, no markdown backticks, no preamble
+- Fill placeholders only when the data exists in the candidate\'s information above; do not invent or fabricate missing fields — omit any line whose data is unavailable
+- Use • for bullet points
+- Plain text only, no bold/italic markdown
+- Match the template structure for fields that are present; omit fields entirely when data is absent
+- Keep the section concise and appropriate for a one-page resume`;
 };
 
 export const prepareInstructions = ({

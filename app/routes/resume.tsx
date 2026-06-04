@@ -1,10 +1,14 @@
 import { Link, useNavigate, useParams } from "react-router";
 import { usePuterStore } from "~/lib/puter";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useCallback, useRef, useState } from "react";
 import { extractTextFromPdf } from "~/lib/pdfToText";
 import Summary from "~/components/Summary";
 import ATS from "~/components/ATS";
 import Details from "~/components/Details";
+import GeneratedResumePanel from "~/components/GeneratedResumePanel";
+import { prepareParseResumeInstructions, prepareFormatSectionInstructions } from "../../constants";
+import { SECTION_ORDER, RESUME_SECTIONS } from "../../constants/resumeSections";
+import { cn } from "~/lib/utils";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { reducedMotion, fadeScaleIn, fadeSlideIn } from "~/lib/animations";
@@ -14,19 +18,25 @@ export const meta = () => ([
     { name: 'description', content: 'Detailed overview of your resume.' },
 ])
 
-const Resume = () => {
-    const { auth, isLoading, fs, kv } = usePuterStore();
+const ResumePage = () => {
+    const { auth, isLoading, fs, kv, ai } = usePuterStore();
     const { id } = useParams();
     const [imageUrl, setImageUrl] = useState('');
     const [resumeUrl, setResumeUrl] = useState('');
     const [feedback, setFeedback] = useState<Feedback | null>(null);
     const [resumeData, setResumeData] = useState<Resume | null>(null);
     const [resumeText, setResumeText] = useState('');
+    const [generatedSections, setGeneratedSections] = useState<Partial<Record<SectionKey, string>>>({});
+    const [parsedData, setParsedData] = useState<ParsedResumeData | null>(null);
+    const [showGenerated, setShowGenerated] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [generatingSection, setGeneratingSection] = useState<SectionKey | null>(null);
+    const [generationComplete, setGenerationComplete] = useState(false);
     const [showReview, setShowReview] = useState(false);
     const [panelOpen, setPanelOpen] = useState(true);
-    const kvQueueRef = useRef<Promise<any>>(Promise.resolve());
     const navigate = useNavigate();
 
+    // GSAP refs
     const backBtnRef = useRef<HTMLAnchorElement>(null);
     const imageWrapRef = useRef<HTMLDivElement>(null);
     const rightSectionRef = useRef<HTMLElement>(null);
@@ -47,6 +57,15 @@ const Resume = () => {
 
             const data: Resume = JSON.parse(resume);
             setResumeData(data);
+
+            if (data.parsedData) setParsedData(data.parsedData);
+
+            if (data.generatedSections) {
+                setGeneratedSections(data.generatedSections);
+                if (SECTION_ORDER.every((k) => !!data.generatedSections?.[k])) {
+                    setGenerationComplete(true);
+                }
+            }
 
             const resumeBlob = await fs.read(data.resumePath);
             if (!resumeBlob) return;
@@ -69,21 +88,75 @@ const Resume = () => {
         loadResume();
     }, [id]);
 
-    const handleRewriteAccepted = (rewrite: RewrittenSection) => {
-        if (!resumeData) return;
-        const updated: Resume = {
-            ...resumeData,
-            rewrites: [...(resumeData.rewrites ?? []), rewrite],
-        };
+    const persistUpdate = useCallback((updated: Resume) => {
         setResumeData(updated);
-        kvQueueRef.current = kvQueueRef.current
-            .catch(() => undefined)
-            .then(() =>
-                kv.set(`resume:${id}`, JSON.stringify(updated)).catch((err) => {
-                    console.error("[resume] kv.set failed:", err);
-                })
-            );
-    };
+        kv.set(`resume:${id}`, JSON.stringify(updated)).catch((err) => {
+            console.error("[resume] kv.set failed:", err);
+        });
+    }, [kv, id]);
+
+    const handleGenerateResume = useCallback(async () => {
+        if (!feedback || !resumeText || !resumeData || isGenerating || generationComplete) return;
+        setIsGenerating(true);
+
+        // Phase 1: Parse resume text into structured JSON
+        let parsed: ParsedResumeData | null = null;
+        try {
+            const parseResult = await ai.rewrite(prepareParseResumeInstructions({ resumeText }));
+            if (parseResult) {
+                const candidate = JSON.parse(parseResult) as ParsedResumeData;
+                if (typeof candidate === 'object' && candidate !== null && Object.keys(candidate).length > 0) {
+                    parsed = candidate;
+                    setParsedData(parsed);
+                }
+            }
+        } catch {
+            // Phase 2 falls back to raw resumeText when parse fails
+        }
+
+        // Phase 2: Format each section using parsed data
+        const accumulated: Partial<Record<SectionKey, string>> = { ...generatedSections };
+
+        for (const sectionKey of SECTION_ORDER) {
+            setGeneratingSection(sectionKey);
+            const sectionData = parsed?.[sectionKey] ? JSON.stringify(parsed[sectionKey]) : null;
+
+            const prompt = prepareFormatSectionInstructions({
+                sectionKey,
+                sectionData,
+                resumeText,
+                template: RESUME_SECTIONS[sectionKey],
+                jobTitle: resumeData.jobTitle ?? '',
+                jobDescription: resumeData.jobDescription ?? '',
+            });
+
+            try {
+                const result = await ai.rewrite(prompt);
+                if (result) {
+                    accumulated[sectionKey] = result;
+                    setGeneratedSections({ ...accumulated });
+                    persistUpdate({
+                        ...resumeData,
+                        parsedData: parsed ?? undefined,
+                        generatedSections: { ...accumulated },
+                    });
+                }
+            } catch {
+                // continue to next section on failure
+            }
+        }
+
+        setGeneratingSection(null);
+        setIsGenerating(false);
+        if (SECTION_ORDER.every(k => !!accumulated[k])) setGenerationComplete(true);
+    }, [feedback, resumeText, resumeData, isGenerating, generationComplete, generatedSections, ai, persistUpdate]);
+
+    const handleGeneratedTabClick = useCallback(() => {
+        setShowGenerated(true);
+        if (!isGenerating && !generationComplete && resumeText && feedback) {
+            handleGenerateResume();
+        }
+    }, [isGenerating, generationComplete, resumeText, feedback, handleGenerateResume]);
 
     const handleShowReview = () => {
         if (reducedMotion() || !ctaRef.current) {
@@ -199,7 +272,6 @@ const Resume = () => {
         { label: 'Skills',       score: feedback.skills.score },
     ] : [];
 
-    // Grid when panel is hidden, flex-col when visible
     const reviewLayout = !panelOpen
         ? 'grid grid-cols-2 gap-x-6 gap-y-8 items-start'
         : 'flex flex-col gap-8';
@@ -211,48 +283,103 @@ const Resume = () => {
                     <img src="/icons/back.svg" alt="Logo" className="w-2.5 h-2.5" />
                     <span className="text-gray-800 text-sm font-semibold">Back to Home</span>
                 </Link>
-
-                {imageUrl && (
-                    <button
-                        onClick={togglePanel}
-                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#171717] bg-white border border-[#dfdfdf] rounded-[6px] hover:border-[#c7c7c7] hover:bg-[#fafafa] transition-all duration-200 cursor-pointer shadow-sm"
-                        aria-label={panelOpen ? 'Hide resume preview' : 'Show resume preview'}
-                    >
-                        {/* Sidebar panel icon — mirrors on close */}
-                        <svg
-                            width="16" height="16" viewBox="0 0 16 16" fill="none"
-                            style={{ transform: panelOpen ? 'none' : 'scaleX(-1)', transition: 'transform 0.3s ease' }}
+                <div className="flex flex-row items-center gap-2">
+                    {imageUrl && (
+                        <button
+                            onClick={togglePanel}
+                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#171717] bg-white border border-[#dfdfdf] rounded-[6px] hover:border-[#c7c7c7] hover:bg-[#fafafa] transition-all duration-200 cursor-pointer shadow-sm"
+                            aria-label={panelOpen ? 'Hide resume preview' : 'Show resume preview'}
                         >
-                            <rect x="1.5" y="1.5" width="13" height="13" rx="2" stroke="currentColor" strokeWidth="1.4"/>
-                            <line x1="5.5" y1="1.5" x2="5.5" y2="14.5" stroke="currentColor" strokeWidth="1.4"/>
-                        </svg>
-                        <span>{panelOpen ? 'Hide Preview' : 'Show Preview'}</span>
+                            <svg
+                                width="16" height="16" viewBox="0 0 16 16" fill="none"
+                                style={{ transform: panelOpen ? 'none' : 'scaleX(-1)', transition: 'transform 0.3s ease' }}
+                            >
+                                <rect x="1.5" y="1.5" width="13" height="13" rx="2" stroke="currentColor" strokeWidth="1.4"/>
+                                <line x1="5.5" y1="1.5" x2="5.5" y2="14.5" stroke="currentColor" strokeWidth="1.4"/>
+                            </svg>
+                            <span>{panelOpen ? 'Hide Preview' : 'Show Preview'}</span>
+                        </button>
+                    )}
+                    <button
+                        onClick={async () => { const ok = await auth.signOut(); if (ok) navigate('/auth'); }}
+                        className="flex flex-row items-center gap-2 border border-[#dfdfdf] hover:border-[#171717] hover:text-[#171717] rounded-[6px] p-2.5 shadow-sm transition-colors duration-200 cursor-pointer bg-white text-sm font-semibold text-[#707070]"
+                    >
+                        Log Out
                     </button>
-                )}
+                </div>
             </nav>
-
             <div className="flex flex-row w-full max-lg:flex-col-reverse">
-                {/* Left: Resume preview — GSAP animates width to 0 on hide */}
+                {/* Left panel — sticky sidebar with slider */}
                 <section
                     ref={leftSectionRef}
-                    className="feedback-section bg-[url('/images/bg-small.svg')] bg-cover h-screen sticky top-0 items-center justify-center"
-                    style={{ flexShrink: 0, overflow: 'hidden' }}
+                    className="feedback-section bg-[url('/images/bg-small.svg')] bg-cover h-screen sticky top-0 overflow-hidden relative"
+                    style={{ flexShrink: 0 }}
                 >
-                    {imageUrl && resumeUrl && (
-                        <div ref={imageWrapRef} className="gradient-border mx-sm:m-0 h-[90%] max-whl:h-fit w-fit">
-                            <a href={resumeUrl} target="_blank" rel="noopener noreferrer">
-                                <img
-                                    src={imageUrl}
-                                    className="w-full h-full object-contain rounded-2xl"
-                                    title="Resume"
-                                    alt="Resume preview"
-                                />
-                            </a>
+                    {/* Toggle tabs — always visible */}
+                    <div className="absolute top-4 left-4 right-4 z-20 flex gap-1 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-xl p-1 shadow-sm">
+                        <button
+                            onClick={() => setShowGenerated(false)}
+                            className={cn(
+                                "flex-1 text-xs font-semibold py-1.5 rounded-lg transition-all duration-200 cursor-pointer",
+                                !showGenerated
+                                    ? "bg-[#171717] text-white shadow-sm"
+                                    : "text-gray-500 hover:text-gray-800"
+                            )}
+                        >
+                            Your Resume
+                        </button>
+                        <button
+                            onClick={handleGeneratedTabClick}
+                            className={cn(
+                                "flex-1 text-xs font-semibold py-1.5 rounded-lg transition-all duration-200 cursor-pointer",
+                                showGenerated
+                                    ? "bg-[#3ecf8e] text-[#171717] shadow-sm"
+                                    : "text-gray-500 hover:text-gray-800"
+                            )}
+                        >
+                            Generated ✦
+                        </button>
+                    </div>
+
+                    {/* Original resume view */}
+                    <div className="h-full overflow-y-auto">
+                        <div className="flex flex-col gap-6 w-full items-center justify-start py-6 pt-16">
+                            {imageUrl && resumeUrl && (
+                                <div ref={imageWrapRef} className="gradient-border w-full max-w-sm">
+                                    <a href={resumeUrl} target="_blank" rel="noopener noreferrer">
+                                        <img
+                                            src={imageUrl}
+                                            className="w-full h-full object-contain rounded-2xl"
+                                            title="Resume"
+                                            alt="Resume preview"
+                                        />
+                                    </a>
+                                </div>
+                            )}
                         </div>
-                    )}
+                    </div>
+
+                    {/* Generated resume panel — slides in from left */}
+                    <div
+                        className={cn(
+                            "absolute inset-0 z-10 transition-transform duration-300 ease-out",
+                            showGenerated ? "translate-x-0" : "-translate-x-full"
+                        )}
+                        style={{ willChange: 'transform' }}
+                    >
+                        <GeneratedResumePanel
+                            generatedSections={generatedSections}
+                            isGenerating={isGenerating}
+                            generatingSection={generatingSection}
+                            resumeText={resumeText}
+                            imageUrl={imageUrl}
+                            generationComplete={generationComplete}
+                            parsedData={parsedData}
+                        />
+                    </div>
                 </section>
 
-                {/* Right: Review section — flex:1 fills freed space as left panel slides out */}
+                {/* Right panel — feedback */}
                 <section
                     ref={rightSectionRef}
                     className="feedback-section"
@@ -261,24 +388,20 @@ const Resume = () => {
                     <h2 className="text-4xl text-black! font-bold">Resume Review</h2>
 
                     {!feedback ? (
-                        /* Still analyzing */
                         <img src="/images/resume-scan-2.gif" className="w-full" alt="Analyzing resume..." />
 
                     ) : !showReview ? (
-                        /* Analysis ready — show CTA card */
                         <div ref={ctaRef} className="flex flex-col w-full" style={{ opacity: 0 }}>
                             <div className="bg-white rounded-[16px] border border-[#dfdfdf] shadow-sm p-8 flex flex-col items-center gap-6 text-center">
                                 <div className="w-14 h-14 rounded-full bg-green-50 border border-green-200 flex items-center justify-center flex-shrink-0">
                                     <img src="/icons/check.svg" alt="" className="w-7 h-7" />
                                 </div>
-
                                 <div className="flex flex-col gap-1.5">
                                     <h3 className="text-xl font-semibold text-[#171717]">Analysis Complete</h3>
                                     <p className="text-sm text-[#707070] leading-relaxed max-w-xs mx-auto">
                                         Your resume has been scored against the job description
                                     </p>
                                 </div>
-
                                 <div className="flex flex-col items-center gap-1 py-2">
                                     <span className="text-[80px] font-bold text-[#171717] leading-none tabular-nums">
                                         {feedback.ATS.score}
@@ -287,8 +410,6 @@ const Resume = () => {
                                         ATS Score / 100
                                     </span>
                                 </div>
-
-                                {/* Category scores preview grid */}
                                 <div className="grid grid-cols-2 gap-3 w-full">
                                     {categoryScores.map(({ label, score }) => (
                                         <div
@@ -302,7 +423,6 @@ const Resume = () => {
                                         </div>
                                     ))}
                                 </div>
-
                                 <button
                                     onClick={handleShowReview}
                                     className="primary-button w-full"
@@ -313,7 +433,6 @@ const Resume = () => {
                         </div>
 
                     ) : (
-                        /* Full review — grid when panel hidden, stack when visible */
                         <div className={reviewLayout}>
                             <div data-animate="panel" style={{ opacity: 0 }}>
                                 <Summary feedback={feedback} />
@@ -326,14 +445,7 @@ const Resume = () => {
                                 className={!panelOpen ? 'col-span-2' : ''}
                                 style={{ opacity: 0 }}
                             >
-                                <Details
-                                    feedback={feedback}
-                                    resumeText={resumeText}
-                                    jobTitle={resumeData?.jobTitle ?? ''}
-                                    jobDescription={resumeData?.jobDescription ?? ''}
-                                    resumeId={id ?? ''}
-                                    onRewriteAccepted={handleRewriteAccepted}
-                                />
+                                <Details feedback={feedback} />
                             </div>
                         </div>
                     )}
@@ -343,4 +455,4 @@ const Resume = () => {
     );
 };
 
-export default Resume;
+export default ResumePage;
