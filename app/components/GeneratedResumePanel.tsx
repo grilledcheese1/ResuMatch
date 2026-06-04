@@ -1,5 +1,8 @@
+import { lazy, Suspense } from "react";
 import { cn } from "~/lib/utils";
 import { SECTION_ORDER, SECTION_LABELS } from "../../constants/resumeSections";
+
+const ResumePDFDownloadButton = lazy(() => import('./ResumePDFDownloadButton'));
 
 const SKELETON_WIDTHS: Record<SectionKey, string[]> = {
     education: ['w-3/4', 'w-1/2', 'w-2/3', 'w-5/12'],
@@ -94,6 +97,23 @@ const GeneratedResumePanel = ({
                             <p className="text-xs text-[#707070] mt-0.5">{contactLine}</p>
                         )}
                         <div className="border-b border-gray-200 mt-3" />
+                    </div>
+                )}
+
+                {/* Download button — shown only when all sections are complete */}
+                {generationComplete && (
+                    <div className="mb-6">
+                        <Suspense fallback={
+                            <button disabled className="primary-button w-full text-sm opacity-50">
+                                Preparing PDF…
+                            </button>
+                        }>
+                            <ResumePDFDownloadButton
+                                candidateName={candidateName ?? 'Resume'}
+                                contactLine={contactLine ?? ''}
+                                generatedSections={generatedSections}
+                            />
+                        </Suspense>
                     </div>
                 )}
 
