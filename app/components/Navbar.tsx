@@ -1,9 +1,18 @@
 import { Link, useNavigate } from "react-router";
+import { useRef } from "react";
 import { usePuterStore } from "~/lib/puter";
+import { useGSAP } from "@gsap/react";
+import { reducedMotion, navbarSlideDown } from "~/lib/animations";
 
 const Navbar = () => {
     const { auth } = usePuterStore();
     const navigate = useNavigate();
+    const navRef = useRef<HTMLElement>(null);
+
+    useGSAP(() => {
+        if (reducedMotion()) return;
+        navbarSlideDown(navRef.current);
+    }, { scope: navRef });
 
     const handleLogout = async () => {
         const ok = await auth.signOut();
@@ -11,7 +20,7 @@ const Navbar = () => {
     };
 
     return (
-        <nav className="navbar">
+        <nav ref={navRef} className="navbar">
             <Link to="/">
                 <p className="text-xl font-semibold text-[#171717] tracking-tight">ResuMatch</p>
             </Link>

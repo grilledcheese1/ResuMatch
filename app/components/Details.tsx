@@ -1,4 +1,8 @@
+import { useRef } from "react";
 import { cn } from "~/lib/utils";
+import { useGSAP } from "@gsap/react";
+import gsap from "gsap";
+import { reducedMotion } from "~/lib/animations";
 import {
   Accordion,
   AccordionContent,
@@ -73,13 +77,28 @@ const CategoryContent = ({
   tips,
 }: {
   tips: { type: "good" | "improve"; tip: string; explanation: string }[];
-}) => (
-  <div className="flex flex-col gap-4 w-full">
-    {tips.map((tip, index) => (
-      <TipCard key={index} tip={tip} />
-    ))}
-  </div>
-);
+}) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useGSAP(() => {
+    if (reducedMotion() || !containerRef.current) return;
+    const cards = containerRef.current.children;
+    if (!cards.length) return;
+    gsap.fromTo(
+      cards,
+      { opacity: 0, y: 10 },
+      { opacity: 1, y: 0, duration: 0.3, ease: "power2.out", stagger: 0.07 }
+    );
+  }, { scope: containerRef });
+
+  return (
+    <div ref={containerRef} className="flex flex-col gap-4 w-full">
+      {tips.map((tip, index) => (
+        <TipCard key={index} tip={tip} />
+      ))}
+    </div>
+  );
+};
 
 interface DetailsProps {
   feedback: Feedback;

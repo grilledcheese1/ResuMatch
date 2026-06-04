@@ -1,12 +1,14 @@
-import {type FormEvent, useEffect, useState} from 'react'
-import React from 'react'
+import { type FormEvent, useEffect, useRef, useState } from 'react';
+import React from 'react';
 import Navbar from "~/components/Navbar";
 import FileUploader from "~/components/FileUploader";
-import {usePuterStore} from "~/lib/puter";
-import {useNavigate} from "react-router";
-import {convertPdfToImage} from "~/lib/pdfToImage";
-import {generateUUID} from "~/lib/utils";
-import {AIResponseFormat, prepareInstructions} from "../../constants";
+import { usePuterStore } from "~/lib/puter";
+import { useNavigate } from "react-router";
+import { convertPdfToImage } from "~/lib/pdfToImage";
+import { generateUUID } from "~/lib/utils";
+import { AIResponseFormat, prepareInstructions } from "../../constants";
+import { useGSAP } from "@gsap/react";
+import { reducedMotion, fadeSlideIn, fadeScaleIn } from "~/lib/animations";
 
 const Upload = () => {
   const { auth, isLoading, fs, ai, kv } = usePuterStore();
@@ -14,26 +16,33 @@ const Upload = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusText, setStatusText] = useState('');
   const [error, setError] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+
+  const headingRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const gifRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
     if (!isLoading && !auth.isAuthenticated) navigate('/auth?next=/upload');
   }, [isLoading, auth.isAuthenticated]);
 
-  const handleAnalyze = async ({ companyName, jobTitle, jobDescription, file} : { companyName : string, jobTitle : string, jobDescription : string, file : File} ) => {
+  const handleAnalyze = async ({ companyName, jobTitle, jobDescription, file }: {
+    companyName: string; jobTitle: string; jobDescription: string; file: File;
+  }) => {
     setIsProcessing(true);
     setError('');
     setStatusText('Uploading file...');
     try {
       const uploadedFile = await fs.upload([file]);
-      if(!uploadedFile) throw new Error('No file uploaded');
+      if (!uploadedFile) throw new Error('No file uploaded');
 
       setStatusText('Converting to image...');
       const imageFile = await convertPdfToImage(file);
-      if(!imageFile.file) throw new Error('Failed to convert PDF to image');
+      if (!imageFile.file) throw new Error('Failed to convert PDF to image');
 
       setStatusText('Uploading the image...');
       const uploadedImage = await fs.upload([imageFile.file]);
-      if(!uploadedImage) throw new Error('Failed to upload image');
+      if (!uploadedImage) throw new Error('Failed to upload image');
 
       setStatusText('Preparing data...');
 
@@ -42,24 +51,24 @@ const Upload = () => {
         id: uuid,
         resumePath: uploadedFile.path,
         imagePath: uploadedImage.path,
-        companyName: companyName,
-        jobTitle: jobTitle,
-        jobDescription: jobDescription,
+        companyName,
+        jobTitle,
+        jobDescription,
         feedback: '',
-      }
+      };
       await kv.set(`resume:${uuid}`, JSON.stringify(data));
 
       setStatusText('Analyzing...');
 
       const feedback = await ai.feedback(
-          uploadedImage.path,
-          prepareInstructions({jobTitle, jobDescription}),
-      )
-      if(!feedback) throw new Error('Failed to analyze resume');
+        uploadedImage.path,
+        prepareInstructions({ jobTitle, jobDescription }),
+      );
+      if (!feedback) throw new Error('Failed to analyze resume');
 
-      const feedbackText = typeof feedback.message.content === 'string' ?
-          feedback.message.content :
-          feedback.message.content[0].text;
+      const feedbackText = typeof feedback.message.content === 'string'
+        ? feedback.message.content
+        : feedback.message.content[0].text;
 
       data.feedback = JSON.parse(feedbackText);
       await kv.set(`resume:${uuid}`, JSON.stringify(data));
@@ -70,28 +79,43 @@ const Upload = () => {
     } finally {
       setIsProcessing(false);
     }
-  }
+  };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget.closest('form');
-    if(!form) return;
+    if (!form) return;
     const formData = new FormData(form);
-
     const companyName = formData.get('company-name') as string;
     const jobTitle = formData.get('job-title') as string;
     const jobDescription = formData.get('job-description') as string;
-
-    if(!file) return;
-
-    await handleAnalyze({ companyName, jobTitle, jobDescription, file});
-  }
-
-  const [file, setFile] = useState<File | null>(null)
+    if (!file) return;
+    await handleAnalyze({ companyName, jobTitle, jobDescription, file });
+  };
 
   const handleFileSelect = (file: File | null) => {
-    setFile(file)
-  }
+    setFile(file);
+  };
+
+  // Heading entrance (once)
+  useGSAP(() => {
+    if (reducedMotion() || !headingRef.current) return;
+    const h1 = headingRef.current.querySelector("h1");
+    if (h1) fadeSlideIn(h1);
+  }, { scope: headingRef });
+
+  // Form fields stagger (fires when form is present / re-appears after error)
+  useGSAP(() => {
+    if (reducedMotion() || isProcessing || !formRef.current) return;
+    const fields = formRef.current.querySelectorAll(".form-div, button[type='submit']");
+    if (fields.length) fadeSlideIn(fields, { stagger: 0.08 });
+  }, { dependencies: [isProcessing] });
+
+  // Processing GIF fade-in
+  useGSAP(() => {
+    if (reducedMotion() || !isProcessing || !gifRef.current) return;
+    fadeScaleIn(gifRef.current, { duration: 0.3 });
+  }, { dependencies: [isProcessing] });
 
   if (isLoading) return (
     <div className="min-h-screen flex items-center justify-center bg-white">
@@ -102,52 +126,52 @@ const Upload = () => {
   if (!auth.isAuthenticated) return null;
 
   return (
-      <main className="bg-white !pt-0">
+    <main className="bg-white !pt-0">
       <Navbar />
 
-        <section className="main-section">
-          <div className="page-heading py-16">
-            <h1>Smart Feedback For Your Dream Job</h1>
-              {isProcessing ? (
-                  <>
-                    <h2>{statusText}</h2>
-                      <img src = "/images/resume-scan.gif" className = "w-full"/>
-                  </>
-              ) : (
-                  <h2>Drop your resume for an ATS score and improvement tips</h2>
-              )}
-              {error && (
-                  <p className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm font-medium w-full">{error}</p>
-              )}
-              {!isProcessing && (
-                  <form id="upload-form" onSubmit={handleSubmit} className="flex flex-col gap-4 mt-8">
+      <section className="main-section">
+        <div ref={headingRef} className="page-heading py-16">
+          <h1>Smart Feedback For Your Dream Job</h1>
+          {isProcessing ? (
+            <>
+              <h2>{statusText}</h2>
+              <img ref={gifRef} src="/images/resume-scan.gif" className="w-full" />
+            </>
+          ) : (
+            <h2>Drop your resume for an ATS score and improvement tips</h2>
+          )}
+          {error && (
+            <p className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm font-medium w-full">
+              {error}
+            </p>
+          )}
+          {!isProcessing && (
+            <form ref={formRef} id="upload-form" onSubmit={handleSubmit} className="flex flex-col gap-4 mt-8">
+              <div className="form-div">
+                <label htmlFor="company-name">Company Name</label>
+                <input type="text" name="company-name" id="company-name" placeholder="company-name" />
+              </div>
+              <div className="form-div">
+                <label htmlFor="job-title">Job Title</label>
+                <input type="text" name="job-title" id="job-title" placeholder="Job Title" />
+              </div>
+              <div className="form-div">
+                <label htmlFor="job-description">Job Description</label>
+                <textarea rows={5} name="job-description" id="job-description" placeholder="Job Description" />
+              </div>
+              <div className="form-div">
+                <label htmlFor="uploader">Upload Resume</label>
+                <FileUploader onFileSelect={handleFileSelect} />
+              </div>
+              <button className="primary-button" type="submit">
+                Analyze Resume
+              </button>
+            </form>
+          )}
+        </div>
+      </section>
+    </main>
+  );
+};
 
-                    <div className="form-div">
-                        <label htmlFor="company-name">Company Name</label>
-                        <input type="text" name="company-name" id="company-name" placeholder="company-name"/>
-                    </div>
-                    <div className="form-div">
-                      <label htmlFor="job-title">Job Title</label>
-                      <input type="text" name="job-title" id="job-title" placeholder="Job Title"/>
-                    </div>
-                    <div className="form-div">
-                      <label htmlFor="job-description">Job Description</label>
-                      <textarea rows = {5} name="job-description" id="job-description" placeholder="Job Description"/>
-                    </div>
-                    <div className="form-div">
-                      <label htmlFor="uploader">Upload Resume</label>
-                      <FileUploader onFileSelect={handleFileSelect} />
-                    </div>
-
-                    <button className="primary-button" type="submit">
-                      Analyze Resume
-                    </button>
-                  </form>
-              )}
-          </div>
-        </section>
-      </main>
-  )
-}
-
-export default Upload
+export default Upload;
