@@ -4,12 +4,49 @@ import { SECTION_ORDER, SECTION_LABELS } from "../../constants/resumeSections";
 
 const ResumePDFDownloadButton = lazy(() => import('./ResumePDFDownloadButton'));
 
+interface EduEntry {
+    institutionName?: string | null;
+    degree?: string | null;
+    major?: string | null;
+    minor?: string | null;
+    location?: string | null;
+    startDate?: string | null;
+    graduationYear?: string | null;
+}
+interface ExpEntry {
+    jobTitle?: string | null;
+    company?: string | null;
+    location?: string | null;
+    dates?: string | null;
+    bullets?: string[] | null;
+}
+interface ProjEntry {
+    title?: string | null;
+    techStack?: string | null;
+    dates?: string | null;
+    bullets?: string[] | null;
+}
+interface Additional {
+    languages?: string | null;
+    frameworks?: string | null;
+    developerTools?: string | null;
+    libraries?: string | null;
+}
+
 const SKELETON_WIDTHS: Record<SectionKey, string[]> = {
     education: ['w-3/4', 'w-1/2', 'w-2/3', 'w-5/12'],
     experience: ['w-full', 'w-11/12', 'w-4/5', 'w-full', 'w-3/4'],
     projects: ['w-2/3', 'w-full', 'w-5/6', 'w-1/2'],
     additional: ['w-full', 'w-5/6', 'w-3/4', 'w-1/2'],
 };
+
+function extractBullets(text: string): string[][] {
+    return text.split(/\n\n+/).map(block =>
+        block.split('\n')
+            .filter(l => /^[-•]\s/.test(l.trim()))
+            .map(l => l.replace(/^[-•]\s+/, '').trim())
+    );
+}
 
 interface GeneratedResumePanelProps {
     generatedSections: Partial<Record<SectionKey, string>>;
@@ -79,23 +116,145 @@ const GeneratedResumePanel = ({
         );
     }
 
-    // State 3 — Sections available (may still be generating later sections)
+    // State 3 — Sections available
     const candidateName = typeof parsedData?.name === 'string' && parsedData.name.trim() ? parsedData.name.trim() : null;
     const contactLine = typeof parsedData?.contact === 'string' && parsedData.contact.trim() ? parsedData.contact.trim() : null;
+
+    const eduEntries = (parsedData?.education as { entries?: EduEntry[] } | null | undefined)?.entries ?? [];
+    const expEntries = (parsedData?.experience as { entries?: ExpEntry[] } | null | undefined)?.entries ?? [];
+    const projEntries = (parsedData?.projects as { entries?: ProjEntry[] } | null | undefined)?.entries ?? [];
+    const add = parsedData?.additional as Additional | null | undefined;
+
+    const expBulletBlocks = generatedSections.experience ? extractBullets(generatedSections.experience) : [];
+    const projBulletBlocks = generatedSections.projects ? extractBullets(generatedSections.projects) : [];
+
+    const renderSectionContent = (key: SectionKey, rewritten: string) => {
+        if (key === 'education' && eduEntries.length > 0) {
+            return (
+                <div>
+                    {eduEntries.map((e, i) => {
+                        const degreeStr = [
+                            e.degree,
+                            e.major && `in ${e.major}`,
+                            e.minor && `Minor in ${e.minor}`,
+                        ].filter(Boolean).join(', ');
+                        const dateStr = [e.startDate, e.graduationYear].filter(Boolean).join(' – ');
+                        return (
+                            <div key={i} className={i > 0 ? 'mt-1' : ''}>
+                                <div className="flex justify-between items-baseline">
+                                    <span className="text-[10px] font-bold font-serif text-black">{e.institutionName}</span>
+                                    <span className="text-[9px] text-black">{e.location}</span>
+                                </div>
+                                <div className="flex justify-between items-baseline">
+                                    <span className="text-[9px] italic text-black">{degreeStr}</span>
+                                    <span className="text-[9px] italic text-black">{dateStr}</span>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            );
+        }
+
+        if (key === 'experience' && expEntries.length > 0) {
+            return (
+                <div>
+                    {expEntries.map((e, i) => {
+                        const bullets = (expBulletBlocks[i]?.length ? expBulletBlocks[i] : e.bullets) ?? [];
+                        return (
+                            <div key={i} className={i > 0 ? 'mt-1.5' : ''}>
+                                <div className="flex justify-between items-baseline">
+                                    <span className="text-[10px] font-bold font-serif text-black">{e.jobTitle}</span>
+                                    <span className="text-[9px] text-black">{e.dates}</span>
+                                </div>
+                                <div className="flex justify-between items-baseline">
+                                    <span className="text-[9px] italic text-black">{e.company}</span>
+                                    <span className="text-[9px] italic text-black">{e.location}</span>
+                                </div>
+                                {bullets.length > 0 && (
+                                    <ul className="mt-0.5">
+                                        {bullets.map((b, j) => (
+                                            <li key={j} className="text-[9px] text-black ml-4 list-disc leading-[1.45]">{b}</li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            );
+        }
+
+        if (key === 'projects' && projEntries.length > 0) {
+            return (
+                <div>
+                    {projEntries.map((e, i) => {
+                        const bullets = (projBulletBlocks[i]?.length ? projBulletBlocks[i] : e.bullets) ?? [];
+                        return (
+                            <div key={i} className={i > 0 ? 'mt-1.5' : ''}>
+                                <div className="flex justify-between items-baseline">
+                                    <span>
+                                        <span className="text-[10px] font-bold font-serif text-black">{e.title}</span>
+                                        {e.techStack && (
+                                            <span className="text-[9px] italic text-black"> | {e.techStack}</span>
+                                        )}
+                                    </span>
+                                    <span className="text-[9px] text-black">{e.dates}</span>
+                                </div>
+                                {bullets.length > 0 && (
+                                    <ul className="mt-0.5">
+                                        {bullets.map((b, j) => (
+                                            <li key={j} className="text-[9px] text-black ml-4 list-disc leading-[1.45]">{b}</li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            );
+        }
+
+        if (key === 'additional' && add) {
+            const rows = [
+                { label: 'Languages', value: add.languages },
+                { label: 'Frameworks', value: add.frameworks },
+                { label: 'Developer Tools', value: add.developerTools },
+                { label: 'Libraries', value: add.libraries },
+            ].filter(r => r.value);
+            if (rows.length > 0) {
+                return (
+                    <div>
+                        {rows.map((r, i) => (
+                            <p key={i} className="text-[9px] text-black leading-[1.5]">
+                                <span className="font-bold">{r.label}: </span>
+                                {r.value}
+                            </p>
+                        ))}
+                    </div>
+                );
+            }
+        }
+
+        return (
+            <p className="text-[9px] text-black whitespace-pre-wrap leading-[1.45] animate-in fade-in duration-700">
+                {rewritten}
+            </p>
+        );
+    };
 
     return (
         <div className="bg-white overflow-y-auto h-full">
             <div className="px-6 pt-12 pb-8">
-                {/* Header — only rendered when parsedData provides clean fields */}
+                {/* Header */}
                 {candidateName && (
-                    <div className="mb-4">
-                        <h1 className="font-heading text-2xl font-bold text-[#171717] leading-tight">
+                    <div className="mb-2">
+                        <h1 className="text-2xl font-bold text-center font-serif text-black mb-0.5">
                             {candidateName}
                         </h1>
                         {contactLine && (
-                            <p className="text-xs text-[#707070] mt-0.5">{contactLine}</p>
+                            <p className="text-[9px] text-center text-black mt-0">{contactLine}</p>
                         )}
-                        <div className="border-b border-gray-200 mt-3" />
                     </div>
                 )}
 
@@ -105,19 +264,18 @@ const GeneratedResumePanel = ({
                     const isActive = generatingSection === key && !rewritten;
 
                     return (
-                        <div key={key} className="mt-4">
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-[#3ecf8e] mb-1">
-                                {SECTION_LABELS[key]}
-                            </p>
-                            <div className="border-b border-gray-100 mb-2" />
+                        <div key={key}>
+                            <div className="flex items-center gap-2 mt-4 mb-1">
+                                <span className="text-[10px] font-bold uppercase tracking-widest font-serif whitespace-nowrap text-black">
+                                    {SECTION_LABELS[key]}
+                                </span>
+                                <div className="flex-1 border-b border-black" />
+                            </div>
+
                             {rewritten ? (
-                                <p className="text-[11px] text-[#171717] whitespace-pre-wrap leading-relaxed animate-in fade-in duration-700">
-                                    {rewritten}
-                                </p>
+                                renderSectionContent(key, rewritten)
                             ) : generationComplete ? (
-                                <p className="text-[11px] text-[#707070] italic">
-                                    No content was generated for this section.
-                                </p>
+                                <p className="text-[9px] text-[#707070] italic">-</p>
                             ) : (
                                 <div className="flex flex-col gap-1.5">
                                     {SKELETON_WIDTHS[key].map((w, i) => (
@@ -139,7 +297,7 @@ const GeneratedResumePanel = ({
                     );
                 })}
 
-                {/* Download button — shown only when all sections are complete */}
+                {/* Download button */}
                 {generationComplete && (
                     <div className="mt-6">
                         <Suspense fallback={
@@ -151,6 +309,7 @@ const GeneratedResumePanel = ({
                                 candidateName={candidateName ?? 'Resume'}
                                 contactLine={contactLine ?? ''}
                                 generatedSections={generatedSections}
+                                parsedData={parsedData}
                             />
                         </Suspense>
                     </div>
