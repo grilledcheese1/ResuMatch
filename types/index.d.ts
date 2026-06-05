@@ -1,4 +1,4 @@
-type SectionKey = 'education' | 'experience' | 'projects' | 'activities' | 'additional';
+type SectionKey = 'education' | 'experience' | 'projects' | 'additional';
 
 interface Job {
     title: string;

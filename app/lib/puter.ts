@@ -365,7 +365,7 @@ export const usePuterStore = create<PuterStore>((set, get) => {
         try {
             const stream = await puter.ai.chat(
                 [{ role: "user", content: prompt }],
-                { model: "claude-sonnet-4", stream: true, max_tokens: 800 }
+                { model: "claude-sonnet-4", stream: true, max_tokens: 3000 }
             );
 
             // stream is an async iterable of chunk objects
@@ -383,7 +383,7 @@ export const usePuterStore = create<PuterStore>((set, get) => {
             // Streaming failed — fall back to non-streaming
             const response = await puter.ai.chat(
                 [{ role: "user", content: prompt }],
-                { model: "claude-sonnet-4", max_tokens: 800 }
+                { model: "claude-sonnet-4", max_tokens: 3000 }
             ) as AIResponse | undefined;
 
             if (response) {
