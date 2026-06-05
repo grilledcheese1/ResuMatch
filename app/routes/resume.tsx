@@ -309,7 +309,7 @@ const ResumePage = () => {
                     <div className="h-full overflow-y-auto">
                         <div className="flex flex-col gap-6 w-full items-center justify-start py-6 pt-16">
                             {imageUrl && resumeUrl && (
-                                <div ref={imageWrapRef} className="gradient-border w-full max-w-sm">
+                                <div ref={imageWrapRef} className="gradient-border w-full max-w-lg">
                                     <a href={resumeUrl} target="_blank" rel="noopener noreferrer">
                                         <img
                                             src={imageUrl}

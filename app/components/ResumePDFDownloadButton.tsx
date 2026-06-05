@@ -5,12 +5,14 @@ interface ResumePDFDownloadButtonProps {
     candidateName: string;
     contactLine: string;
     generatedSections: Partial<Record<SectionKey, string>>;
+    parsedData: ParsedResumeData | null;
 }
 
 const ResumePDFDownloadButton = ({
     candidateName,
     contactLine,
     generatedSections,
+    parsedData,
 }: ResumePDFDownloadButtonProps) => {
     const [instance] = usePDF({
         document: (
@@ -18,6 +20,7 @@ const ResumePDFDownloadButton = ({
                 candidateName={candidateName}
                 contactLine={contactLine}
                 generatedSections={generatedSections}
+                parsedData={parsedData}
             />
         ),
     });
