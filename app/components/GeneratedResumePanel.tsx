@@ -8,7 +8,6 @@ const SKELETON_WIDTHS: Record<SectionKey, string[]> = {
     education: ['w-3/4', 'w-1/2', 'w-2/3', 'w-5/12'],
     experience: ['w-full', 'w-11/12', 'w-4/5', 'w-full', 'w-3/4'],
     projects: ['w-2/3', 'w-full', 'w-5/6', 'w-1/2'],
-    activities: ['w-3/4', 'w-full', 'w-2/3'],
     additional: ['w-full', 'w-5/6', 'w-3/4', 'w-1/2'],
 };
 

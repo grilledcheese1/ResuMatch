@@ -140,24 +140,71 @@ export const prepareParseResumeInstructions = ({
 }: {
     resumeText: string;
 }) =>
-    `You are a resume data extractor. Parse the following resume into a structured JSON object.
+    `You are a resume data extractor. Parse the following resume text into a structured JSON object. Extract every detail faithfully — do not summarize, condense, or omit any specific technology names, metrics, or implementation details.
 
 Resume text:
 ---
-${resumeText.slice(0, 5000)}
+${resumeText.slice(0, 8000)}
 ---
 
-Return ONLY a valid JSON object (no markdown, no backticks, no explanation) with this structure:
+Return ONLY a valid JSON object (no markdown, no backticks, no explanation) with this exact structure:
+
 {
   "name": "Full name of the candidate",
-  "contact": "Single contact line: address, phone, email",
-  "education": { "entries": [ { "institutionName": "...", "degree": "...", "major": "...", "location": "...", "graduationYear": "...", "gpa": "...", "coursework": "..." } ] },
-  "experience": { "entries": [ { "jobTitle": "...", "company": "...", "location": "...", "dates": "...", "bullets": ["..."] } ] },
-  "projects": { "entries": [ { "title": "...", "dates": "...", "description": "...", "role": "...", "technologies": "...", "outcome": "..." } ] },
-  "activities": { "entries": [ { "name": "...", "dates": "...", "description": "...", "skills": "...", "achievements": "..." } ] },
-  "additional": { "languageSkills": "...", "technicalSkills": "...", "volunteerExperience": "...", "interests": "..." }
+  "contact": "Single contact line: address, phone, email, and any profile URLs",
+  "education": {
+    "entries": [
+      {
+        "institutionName": "...",
+        "degree": "...",
+        "major": "...",
+        "minor": "...",
+        "location": "...",
+        "startDate": "...",
+        "graduationYear": "...",
+        "gpa": "...",
+        "coursework": "...",
+        "honors": "..."
+      }
+    ]
+  },
+  "experience": {
+    "entries": [
+      {
+        "jobTitle": "...",
+        "company": "...",
+        "location": "...",
+        "dates": "...",
+        "bullets": ["Preserve each bullet point exactly as written, including all specific technologies, metrics, and tool names mentioned"]
+      }
+    ]
+  },
+  "projects": {
+    "entries": [
+      {
+        "title": "...",
+        "techStack": "...",
+        "dates": "...",
+        "bullets": ["Each distinct implementation detail as its own bullet — never merge multiple technical layers into one sentence"]
+      }
+    ]
+  },
+  "additional": {
+    "languages": "...",
+    "frameworks": "...",
+    "developerTools": "...",
+    "libraries": "..."
+  }
 }
-If a field is absent from the resume, use null or omit it. Return only the JSON.`;
+
+Critical rules:
+- For projects[].techStack: extract the inline tech stack exactly as listed next to the project title — do not infer from bullets.
+- For projects[].bullets: each bullet is its own array entry; never merge.
+- For education[].entries: if multiple institutions are present, create a separate entry for each.
+- For additional: split into Languages, Frameworks, Developer Tools, Libraries subcategories exactly as labeled; null if absent.
+- Activities field has been removed — do not include it.
+- For experience[].bullets: copy bullet text verbatim — do not paraphrase or shorten.
+- If a field is absent from the resume, use null. Return only the JSON.`;
 
 export const prepareFormatSectionInstructions = ({
     sectionKey,
@@ -198,7 +245,9 @@ Rules:
 - Use • for bullet points
 - Plain text only, no bold/italic markdown
 - Match the template structure for fields that are present; omit fields entirely when data is absent
-- Keep the section concise and appropriate for a one-page resume`;
+- Keep the section concise and appropriate for a one-page resume
+- NEVER output explanatory text about missing data — if a section has no content, output a single dash "-" and nothing else
+- For the projects section specifically: the title line must follow the format "[Project Title] | [Tech Stack] | [Dates]" — never put tech stack on its own line or inside bullets`;
 };
 
 export const prepareInstructions = ({

@@ -10,11 +10,11 @@ describe('prepareParseResumeInstructions', () => {
         expect(prompt).toContain('john@email.com');
     });
 
-    it('truncates resume text at 5000 chars', () => {
-        const longText = 'x'.repeat(7000);
+    it('truncates resume text at 8000 chars', () => {
+        const longText = 'x'.repeat(9000);
         const prompt = prepareParseResumeInstructions({ resumeText: longText });
-        expect(prompt).toContain('x'.repeat(5000));
-        expect(prompt).not.toContain('x'.repeat(5001));
+        expect(prompt).toContain('x'.repeat(8000));
+        expect(prompt).not.toContain('x'.repeat(8001));
     });
 
     it('instructs the AI to return only JSON', () => {
@@ -29,7 +29,6 @@ describe('prepareParseResumeInstructions', () => {
         expect(prompt).toContain('"education"');
         expect(prompt).toContain('"experience"');
         expect(prompt).toContain('"projects"');
-        expect(prompt).toContain('"activities"');
         expect(prompt).toContain('"additional"');
         expect(prompt).toContain('"name"');
         expect(prompt).toContain('"contact"');
