@@ -1,87 +1,43 @@
-# Welcome to React Router!
+# ResuMatch
 
-A modern, production-ready template for building full-stack React applications using React Router.
+AI-powered resume analyzer and formatter.
 
-[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/remix-run/react-router-templates/tree/main/default)
+## About
+
+ResuMatch lets you upload a PDF resume, receive an ATS score with structured feedback
+across tone, content, structure, and skills, then generate a reformatted version of your
+resume matched to a specific job description.
+
+The generation pipeline runs in two phases. Phase 1 uses an LLM to parse raw PDF text
+into a structured JSON object, extracting education entries, experience entries, projects,
+and technical skills. Phase 2 iterates over each resume section and runs a per-section
+LLM rewrite using the parsed data and the target job description as context. ATS feedback
+from the initial scoring pass is injected into each section prompt to guide improvements.
+
+The rendered output uses a hybrid approach: structured metadata (job titles, company names,
+dates, institution names) comes from the Phase 1 JSON parse, while rewritten bullet content
+comes from Phase 2 LLM output. The final layout follows the Jake Ryan resume template.
+Download is handled entirely client-side via @react-pdf/renderer.
 
 ## Features
 
-- 🚀 Server-side rendering
-- ⚡️ Hot Module Replacement (HMR)
-- 📦 Asset bundling and optimization
-- 🔄 Data loading and mutations
-- 🔒 TypeScript by default
-- 🎉 TailwindCSS for styling
-- 📖 [React Router docs](https://reactrouter.com/)
+- PDF upload with ATS scoring and category feedback (tone, content, structure, skills)
+- Two-phase generation pipeline: structured parse then per-section LLM rewrite
+- Hybrid rendering: structured metadata from JSON parse, rewritten bullets from LLM output
+- Jake Ryan-style resume layout with inline section rules, two-column entry rows
+- Downloadable PDF output via @react-pdf/renderer
+- Incremental generation with per-section KV persistence (survives page reload)
 
-## Getting Started
+## Tech Stack
 
-### Installation
+| | |
+|---|---|
+| React Router v7 | TypeScript |
+| Tailwind CSS | Puter.js (auth, filesystem, KV, AI proxy) |
+| @react-pdf/renderer | GSAP |
 
-Install the dependencies:
+## Acknowledgements
 
-```bash
-npm install
-```
-
-### Development
-
-Start the development server with HMR:
-
-```bash
-npm run dev
-```
-
-Your application will be available at `http://localhost:5173`.
-
-## Building for Production
-
-Create a production build:
-
-```bash
-npm run build
-```
-
-## Deployment
-
-### Docker Deployment
-
-To build and run using Docker:
-
-```bash
-docker build -t my-app .
-
-# Run the container
-docker run -p 3000:3000 my-app
-```
-
-The containerized application can be deployed to any platform that supports Docker, including:
-
-- AWS ECS
-- Google Cloud Run
-- Azure Container Apps
-- Digital Ocean App Platform
-- Fly.io
-- Railway
-
-### DIY Deployment
-
-If you're familiar with deploying Node applications, the built-in app server is production-ready.
-
-Make sure to deploy the output of `npm run build`
-
-```
-├── package.json
-├── package-lock.json (or pnpm-lock.yaml, or bun.lockb)
-├── build/
-│   ├── client/    # Static assets
-│   └── server/    # Server-side code
-```
-
-## Styling
-
-This template comes with [Tailwind CSS](https://tailwindcss.com/) already configured for a simple default starting experience. You can use whatever CSS framework you prefer.
-
----
-
-Built with ❤️ using React Router.
+Originally scaffolded from [JavaScript Mastery's tutorial](https://www.youtube.com/@javascriptmastery),
+extended with a typed JSON parse pipeline, hybrid structured rendering, ATS feedback
+injection, and Jake Ryan template support.
