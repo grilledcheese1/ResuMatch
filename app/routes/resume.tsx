@@ -97,6 +97,12 @@ const ResumePage = () => {
         if (!feedback || !resumeText || !resumeData || isGenerating || generationComplete) return;
         setIsGenerating(true);
 
+        const atsTips = (feedback?.ATS?.tips ?? [])
+            .filter(t => t.type === 'improve')
+            .filter(t => !/keyword|job description|tailor|relevant skill|align|match the job/i.test(t.tip))
+            .map(t => t.tip)
+            .slice(0, 4);
+
         // Phase 1: Parse resume text into structured JSON
         let parsed: ParsedResumeData | null = null;
         try {
@@ -126,6 +132,7 @@ const ResumePage = () => {
                 template: RESUME_SECTIONS[sectionKey],
                 jobTitle: resumeData.jobTitle ?? '',
                 jobDescription: resumeData.jobDescription ?? '',
+                atsTips,
             });
 
             try {

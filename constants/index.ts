@@ -213,6 +213,7 @@ export const prepareFormatSectionInstructions = ({
     template,
     jobTitle,
     jobDescription,
+    atsTips,
 }: {
     sectionKey: string;
     sectionData: string | null;
@@ -220,10 +221,15 @@ export const prepareFormatSectionInstructions = ({
     template: string;
     jobTitle: string;
     jobDescription: string;
+    atsTips?: string[];
 }) => {
     const dataBlock = sectionData
         ? `Structured data extracted from the resume for this section:\n${sectionData}`
         : `No structured data available — use the raw resume text below:\n${resumeText.slice(0, 3000)}`;
+
+    const atsTipsBlock = atsTips && atsTips.length > 0
+        ? `\nATS improvement guidance (apply only where relevant to this section):\n${JSON.stringify(atsTips)}\n`
+        : '';
 
     return `You are an expert resume writer.
 Format the "${sectionKey}" section of a professional resume.
@@ -233,7 +239,7 @@ Job the candidate is applying for:
 - Description: ${jobDescription}
 
 ${dataBlock}
-
+${atsTipsBlock}
 Section template to follow (structure reference only — do not copy placeholder text into output):
 ---
 ${template}

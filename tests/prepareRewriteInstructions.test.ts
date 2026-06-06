@@ -85,4 +85,19 @@ describe('prepareFormatSectionInstructions', () => {
         expect(prompt.length).toBeGreaterThan(100);
         expect(prompt).toContain(base.sectionKey);
     });
+
+    it('injects atsTips as a JSON block when provided', () => {
+        const tips = ['Use stronger action verbs', 'Quantify achievements with metrics'];
+        const prompt = prepareFormatSectionInstructions({ ...base, atsTips: tips });
+        expect(prompt).toContain('ATS improvement guidance');
+        expect(prompt).toContain('Use stronger action verbs');
+        expect(prompt).toContain('Quantify achievements with metrics');
+    });
+
+    it('omits ATS block entirely when atsTips is empty or undefined', () => {
+        const promptEmpty = prepareFormatSectionInstructions({ ...base, atsTips: [] });
+        const promptUndefined = prepareFormatSectionInstructions({ ...base });
+        expect(promptEmpty).not.toContain('ATS improvement guidance');
+        expect(promptUndefined).not.toContain('ATS improvement guidance');
+    });
 });
